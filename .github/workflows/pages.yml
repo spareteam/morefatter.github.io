@@ -1,0 +1,49 @@
+name: Publish website
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Get website
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check website
+        run: |
+          node --check app.js
+          node --check shop.js
+          node scripts/check-site.mjs
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Prepare website files
+        run: |
+          mkdir -p _site
+          cp index.html style.css app.js shop.js content.json .nojekyll _site/
+          if [ -d assets ]; then cp -R assets _site/; fi
+      - name: Upload website
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: _site
+      - name: Publish website
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+      - name: Show website link
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: printf '## Website published\n\n[Open More Fatter](%s)\n' "$SITE_URL" >> "$GITHUB_STEP_SUMMARY"
