@@ -21,7 +21,7 @@ The current rebuild has not yet been visually compared with the live original, s
 - Full-screen original background film and Advert wordmark
 - Eight release slides with click-to-load Feature.fm players and original artwork
 - Ten YouTube videos with thumbnail previews; players load only after a click
-- Five-second slideshow rotation, pause controls, keyboard navigation, and touch swiping
+- Three-second slideshow rotation, pause controls, keyboard navigation, and touch swiping
 - Live Songkick tour widget
 - Original Shopify collection and checkout integration (loaded on opening Shop)
 - Original typography, colors, navigation, arrows, pagination, and footer styling

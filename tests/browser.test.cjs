@@ -134,24 +134,24 @@ test('Small phones, landscape and desktop keep carousel controls inside a usable
   }
 });
 
-test('Both carousels advance every five seconds even while hovered, wrap, and respect explicit pause', async () => {
+test('Both carousels advance every three seconds even while hovered, wrap, and respect explicit pause', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 1440, height: 900 }, clock: true });
   try {
     for (const kind of ['music', 'video']) {
       await choose(page, kind);
       await activePreview(page, kind).hover();
-      await page.clock.fastForward(4000);
+      await page.clock.fastForward(2000);
       assert.equal(await index(page, kind), 0);
       await page.clock.fastForward(1200);
       assert.equal(await index(page, kind), 1, 'Hover must not disable auto-advance');
       await page.locator(`#${kind} .dot`).last().click();
-      await page.clock.fastForward(5100);
+      await page.clock.fastForward(3100);
       assert.equal(await index(page, kind), 0, 'Auto-advance should loop to the first item');
       await page.locator(`#${kind} .rotation-toggle`).click();
       await page.clock.fastForward(30000);
       assert.equal(await index(page, kind), 0);
       await page.locator(`#${kind} .rotation-toggle`).click();
-      await page.clock.fastForward(5100);
+      await page.clock.fastForward(3100);
       assert.equal(await index(page, kind), 1);
     }
     assert.deepEqual(errors, []);
@@ -260,7 +260,7 @@ test('Players load on demand and suspend rotation and background video until sli
       await page.locator(`#${kind} .rotation-toggle`).click();
       assert.equal(await page.locator('iframe').count(), 0);
       await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
-      await page.clock.fastForward(5100);
+      await page.clock.fastForward(3100);
       assert.equal(await index(page, kind), 1);
     }
     assert.deepEqual(errors, []);
@@ -273,7 +273,7 @@ test('Reduced motion and data saving keep the background unloaded without silent
     try {
       await choose(page, 'music');
       assert.equal(await page.locator('#music .rotation-toggle').innerText(), 'Pause slideshow');
-      await page.clock.fastForward(5100);
+      await page.clock.fastForward(3100);
       assert.equal(await index(page, 'music'), 1);
       assert.equal(await page.locator('.backdrop').getAttribute('src'), null);
       assert.equal(requests.some(request => request.url.includes('.mp4')), false);
@@ -297,7 +297,7 @@ test('Hiding the tab suspends rotation and background playback', async () => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: false });
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    await page.clock.fastForward(5100);
+    await page.clock.fastForward(3100);
     assert.equal(await index(page, 'music'), 1);
   } finally { await context.close(); }
 });
