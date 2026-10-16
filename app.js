@@ -5,7 +5,6 @@ const nav = [...document.querySelectorAll('[data-panel]')];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const connection = navigator.connection;
 const ROTATION_DELAY = 8000;
-const INTERACTION_DELAY = 12000;
 const carousels = {};
 let current = null;
 let keyboardMode = false;
@@ -19,10 +18,10 @@ function element(tag, className, text) {
   return node;
 }
 
-function button(className, text, label) {
-  const node = element('button', className, text);
+function button(className, label) {
+  const node = element('button', className);
   node.type = 'button';
-  if (label) node.setAttribute('aria-label', label);
+  node.setAttribute('aria-label', label);
   return node;
 }
 
@@ -35,86 +34,39 @@ function clearRotation(state) {
   state.timer = null;
 }
 
-function scheduleRotation(kind, focusedElement = document.activeElement) {
+function scheduleRotation(kind) {
   const state = carousels[kind];
   clearRotation(state);
-  const keyboardInside = keyboardMode && state.root.contains(focusedElement) && !state.allowFocusedRotation;
-  if (current !== kind || state.paused || state.hovered || state.playerOpen ||
-      state.gesture || document.hidden || keyboardInside) return;
-  const delay = Math.max(ROTATION_DELAY, state.interactionUntil - Date.now());
-  state.timer = setTimeout(() => goTo(kind, state.index + 1, { automatic: true }), delay);
+  const focusedSlide = keyboardMode && state.cells[state.physical]?.slide.contains(document.activeElement);
+  if (current !== kind || state.paused || state.playerOpen || state.gesture ||
+      document.hidden || focusedSlide) return;
+  state.timer = setTimeout(() => goTo(kind, state.index + 1, { automatic: true, direction: 1 }), ROTATION_DELAY);
 }
 
-function updateRotationControl(state) {
-  state.toggle.textContent = state.paused ? 'Play slideshow' : 'Pause slideshow';
-  state.help.textContent = state.playerOpen
-    ? 'Close the player to continue the slideshow. Swipe beside the player or use the arrows to browse.'
-    : state.paused ? 'Swipe or use the arrows to browse.'
-      : 'Swipe to browse · slides advance every 8 seconds.';
+function updateControls(kind, announce = false) {
+  const state = carousels[kind];
+  const list = listFor(kind);
+  state.root.dataset.index = String(state.index);
+  state.toggle.textContent = state.playerOpen ? 'Resume slideshow' : state.paused ? 'Play slideshow' : 'Pause slideshow';
+  state.toggle.setAttribute('aria-label', state.toggle.textContent);
+  [...state.dots.children].forEach((dot, index) => dot.setAttribute('aria-current', String(index === state.index)));
+  state.cells.forEach((cell, index) => {
+    cell.slide.inert = index !== state.physical;
+    cell.slide.setAttribute('aria-hidden', String(index !== state.physical));
+    cell.slide.dataset.active = String(index === state.physical);
+  });
+  if (announce) state.status.textContent = `${state.index + 1} of ${list.length}: ${list[state.index].title}`;
 }
 
-function createCarousel(kind) {
-  const root = document.querySelector(`#${kind}-content`);
-  root.setAttribute('role', 'region');
-  root.setAttribute('aria-roledescription', 'carousel');
-  root.setAttribute('aria-label', kind === 'music' ? 'Music releases' : 'Music videos');
-  const stage = element('div', 'carousel-stage');
-  const slide = element('div', 'slide');
-  slide.setAttribute('role', 'group');
-  slide.setAttribute('aria-roledescription', 'slide');
-  stage.append(slide);
-  const controls = element('div', 'carousel-controls');
-  const previous = button('arrow prev', '‹', `Previous ${kind === 'music' ? 'release' : 'video'}`);
-  const counter = element('span', 'slide-counter');
-  counter.setAttribute('aria-hidden', 'true');
-  const next = button('arrow next', '›', `Next ${kind === 'music' ? 'release' : 'video'}`);
-  const toggle = button('rotation-toggle', 'Pause slideshow');
-  controls.append(previous, counter, next, toggle);
-  const dots = element('div', 'dots');
-  dots.setAttribute('role', 'group');
-  dots.setAttribute('aria-label', `Choose ${kind === 'music' ? 'a release' : 'a video'}`);
-  const help = element('p', 'carousel-help');
-  const status = element('p', 'visually-hidden');
-  status.setAttribute('role', 'status');
-  status.setAttribute('aria-live', 'polite');
-  root.replaceChildren(stage, controls, dots, help, status);
-  const state = carousels[kind] = {
-    root, stage, slide, dots, counter, toggle, help, status,
-    index: 0, paused: reducedMotion.matches || Boolean(connection?.saveData),
-    hovered: false, playerOpen: false, rendered: false, allowFocusedRotation: false,
-    timer: null, gesture: null, interactionUntil: 0, suppressClickUntil: 0,
-  };
-  listFor(kind).forEach((item, index) => {
-    const dot = button('dot', '', `${index + 1}: ${item.title}`);
-    dot.addEventListener('click', () => goTo(kind, index));
-    dots.append(dot);
-  });
-  previous.addEventListener('click', () => goTo(kind, state.index - 1));
-  next.addEventListener('click', () => goTo(kind, state.index + 1));
-  toggle.addEventListener('click', () => {
-    state.paused = !state.paused;
-    state.allowFocusedRotation = !state.paused;
-    state.interactionUntil = 0;
-    updateRotationControl(state);
-    scheduleRotation(kind);
-  });
-  root.addEventListener('pointerenter', event => {
-    if (event.pointerType !== 'mouse') return;
-    state.hovered = true;
-    scheduleRotation(kind);
-  });
-  root.addEventListener('pointerleave', event => {
-    if (event.pointerType !== 'mouse') return;
-    state.hovered = false;
-    scheduleRotation(kind);
-  });
-  root.addEventListener('focusin', () => {
-    state.allowFocusedRotation = false;
-    scheduleRotation(kind);
-  });
-  root.addEventListener('focusout', event => scheduleRotation(kind, event.relatedTarget));
-  installSwipe(kind);
-  updateRotationControl(state);
+function finishTransition(kind) {
+  const state = carousels[kind];
+  const animation = state.animation;
+  state.animation = null;
+  animation?.cancel();
+  state.physical = state.index + 1;
+  state.track.style.transform = `translate3d(${-state.physical * 100}%, 0, 0)`;
+  state.root.dataset.animating = 'false';
+  updateControls(kind);
 }
 
 function videoId(item) {
@@ -122,18 +74,72 @@ function videoId(item) {
 }
 
 function itemLink(kind, item) {
-  return kind === 'video'
-    ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId(item))}`
+  return kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId(item))}`
     : item.embed ? item.embed.replace(/\/widget\/?$/, '') : item.url;
 }
 
-function openPlayer(kind) {
+function previewImage(url, title, className) {
+  const image = element('img', className);
+  image.src = url;
+  image.alt = title;
+  image.loading = 'lazy';
+  image.decoding = 'async';
+  return image;
+}
+
+function renderMedia(kind, cell) {
+  const item = cell.item;
+  if (kind === 'video') {
+    const preview = button('video-frame video-preview', `Play ${item.title}`);
+    const image = previewImage(`https://i.ytimg.com/vi/${encodeURIComponent(videoId(item))}/hqdefault.jpg`, '', 'video-thumbnail');
+    image.width = 480;
+    image.height = 360;
+    image.addEventListener('error', () => { image.hidden = true; });
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 68 48');
+    icon.setAttribute('aria-hidden', 'true');
+    const shape = document.createElementNS(icon.namespaceURI, 'path');
+    shape.setAttribute('d', 'M66 8a8 8 0 0 0-6-6C55 0 34 0 34 0S13 0 8 2a8 8 0 0 0-6 6C0 13 0 24 0 24s0 11 2 16a8 8 0 0 0 6 6c5 2 26 2 26 2s21 0 26-2a8 8 0 0 0 6-6c2-5 2-16 2-16s0-11-2-16');
+    shape.setAttribute('fill', '#f00');
+    const triangle = document.createElementNS(icon.namespaceURI, 'path');
+    triangle.setAttribute('d', 'm27 14 18 10-18 10Z');
+    triangle.setAttribute('fill', '#fff');
+    icon.append(shape, triangle);
+    preview.append(image, icon);
+    preview.addEventListener('click', () => openPlayer(kind));
+    cell.media.replaceChildren(preview);
+  } else if (item.embed) {
+    const preview = button('cover music-preview', `Listen to ${item.title}`);
+    preview.append(previewImage(item.preview, `${item.title} cover artwork`, 'cover-art'));
+    preview.addEventListener('click', () => openPlayer(kind));
+    cell.media.replaceChildren(preview);
+  } else {
+    const link = element('a', 'artwork-link');
+    link.href = item.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    const image = previewImage(item.image, `${item.title} cover artwork`, 'cover');
+    image.width = 400;
+    image.height = 400;
+    link.append(image);
+    cell.media.replaceChildren(link);
+  }
+}
+
+function stopPlayers(kind) {
   const state = carousels[kind];
+  for (const cell of state.cells) if (cell.media.querySelector('iframe')) renderMedia(kind, cell);
+  state.playerOpen = false;
+}
+
+function openPlayer(kind) {
   if (current !== kind) return;
-  const item = listFor(kind)[state.index];
+  const state = carousels[kind];
+  finishTransition(kind);
+  const cell = state.cells[state.physical];
+  const item = cell.item;
   state.playerOpen = true;
   clearRotation(state);
-  const media = state.slide.querySelector('.media');
   const frame = element('iframe', kind === 'video' ? 'video-frame' : 'cover');
   const source = new URL(kind === 'video' ? item.url : item.embed);
   if (kind === 'video') {
@@ -145,146 +151,182 @@ function openPlayer(kind) {
   frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
   frame.allowFullscreen = true;
   frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  const closePlayer = button('close-player', 'Close player');
-  closePlayer.addEventListener('click', () => {
-    state.playerOpen = false;
-    state.interactionUntil = Date.now() + INTERACTION_DELAY;
-    renderSlide(kind);
-    state.slide.querySelector('.play-preview')?.focus({ preventScroll: true });
-    updateBackground();
-    scheduleRotation(kind);
-  });
-  media.replaceChildren(frame, closePlayer);
-  updateRotationControl(state);
+  cell.media.replaceChildren(frame);
+  updateControls(kind);
   updateBackground();
-  if (keyboardMode) closePlayer.focus({ preventScroll: true });
+  if (keyboardMode) frame.focus({ preventScroll: true });
 }
 
-function renderSlide(kind) {
+function fitCarousel(kind) {
+  if (current !== kind) return;
   const state = carousels[kind];
-  const item = listFor(kind)[state.index];
-  state.rendered = true;
-  state.playerOpen = false;
-  state.slide.style.transform = '';
-  state.slide.setAttribute('aria-label', `${state.index + 1} of ${listFor(kind).length}: ${item.title}`);
-  const media = element('div', `media ${kind === 'video' ? 'video-media' : 'music-media'}`);
-  if (kind === 'video' || item.embed) {
-    const preview = button(`play-preview ${kind === 'video' ? 'video-preview' : 'cover music-preview'}`,
-      undefined, `${kind === 'video' ? 'Play' : 'Listen to'} ${item.title}`);
-    if (kind === 'video') {
-      const image = element('img', 'video-thumbnail');
-      image.src = `https://i.ytimg.com/vi/${encodeURIComponent(videoId(item))}/hqdefault.jpg`;
-      image.alt = '';
-      image.loading = 'lazy';
-      image.decoding = 'async';
-      image.width = 480;
-      image.height = 360;
-      image.addEventListener('error', () => { image.hidden = true; });
-      preview.append(image);
-    } else {
-      preview.append(element('span', 'preview-artist', 'More Fatter'),
-        element('span', 'preview-title', item.title));
-    }
-    const icon = element('span', 'play-icon');
-    icon.setAttribute('aria-hidden', 'true');
-    preview.append(icon, element('span', 'play-label', kind === 'video' ? 'Play video' : 'Listen now'));
-    preview.addEventListener('click', () => openPlayer(kind));
-    media.append(preview);
-  } else {
-    const link = element('a', 'artwork-link');
-    link.href = item.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    const image = element('img', 'cover');
-    image.src = item.image;
-    image.alt = `${item.title} cover artwork`;
-    image.loading = 'lazy';
-    image.decoding = 'async';
-    image.width = 400;
-    image.height = 400;
-    link.append(image);
-    media.append(link);
-  }
-  const title = element('h2', 'slide-title');
-  const link = element('a', '', item.title);
-  link.href = itemLink(kind, item);
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  title.append(link);
-  state.slide.replaceChildren(media, title);
-  state.counter.textContent = `${state.index + 1} / ${listFor(kind).length}`;
-  [...state.dots.children].forEach((dot, index) => {
-    dot.setAttribute('aria-current', String(index === state.index));
-  });
-  updateRotationControl(state);
+  const titleHeight = Math.max(...state.cells.map(cell => cell.title.getBoundingClientRect().height));
+  const rootStyle = getComputedStyle(state.root);
+  const dotsStyle = getComputedStyle(state.dots);
+  const toggleStyle = getComputedStyle(state.toggle);
+  const reserve = parseFloat(rootStyle.paddingTop) + titleHeight + 12 +
+    state.dots.getBoundingClientRect().height + parseFloat(dotsStyle.marginTop) +
+    state.toggle.getBoundingClientRect().height + parseFloat(toggleStyle.marginTop) +
+    (kind === 'video' && matchMedia('(max-width: 700px)').matches ? 25 : 0) + 2;
+  state.root.style.setProperty('--media-limit', `${Math.max(140, Math.floor(state.area.clientHeight - reserve))}px`);
 }
 
-function goTo(kind, index, { automatic = false } = {}) {
+function goTo(kind, requested, { automatic = false, direction = 0, dragOffset = 0 } = {}) {
   const state = carousels[kind];
+  clearRotation(state);
+  finishTransition(kind);
+  const previous = state.index;
+  const oldPhysical = state.physical;
   const count = listFor(kind).length;
-  state.index = ((index % count) + count) % count;
-  if (!automatic) state.interactionUntil = Date.now() + INTERACTION_DELAY;
-  renderSlide(kind);
-  if (!reducedMotion.matches) {
-    state.slide.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 220 });
+  const index = ((requested % count) + count) % count;
+  const step = direction || Math.sign(requested - previous);
+  const physical = previous === count - 1 && index === 0 && step > 0 ? count + 1
+    : previous === 0 && index === count - 1 && step < 0 ? 0 : index + 1;
+  stopPlayers(kind);
+  state.index = index;
+  state.physical = physical;
+  updateControls(kind, !automatic);
+  for (const cell of state.cells.slice(Math.max(0, physical - 1), physical + 2)) {
+    const image = cell.media.querySelector('img');
+    if (image) image.loading = 'eager';
   }
-  if (!automatic) state.status.textContent = `${state.index + 1} of ${count}: ${listFor(kind)[state.index].title}`;
+  const width = state.viewport.clientWidth;
+  state.track.style.transform = `translate3d(${-physical * 100}%, 0, 0)`;
+  if (!reducedMotion.matches && width && (oldPhysical !== physical || dragOffset)) {
+    state.root.dataset.animating = 'true';
+    const animation = state.track.animate([
+      { transform: `translate3d(${-oldPhysical * width + dragOffset}px, 0, 0)` },
+      { transform: `translate3d(${-physical * width}px, 0, 0)` },
+    ], { duration: 420, easing: 'cubic-bezier(.22,.61,.36,1)' });
+    state.animation = animation;
+    animation.onfinish = () => { if (state.animation === animation) finishTransition(kind); };
+  } else finishTransition(kind);
   updateBackground();
   scheduleRotation(kind);
 }
 
 function installSwipe(kind) {
   const state = carousels[kind];
-  const stage = state.stage;
-  stage.addEventListener('dragstart', event => event.preventDefault());
-  stage.addEventListener('pointerdown', event => {
-    if (!event.isPrimary || event.button !== 0 || event.target.closest('.close-player')) return;
+  const viewport = state.viewport;
+  viewport.addEventListener('dragstart', event => event.preventDefault());
+  viewport.addEventListener('pointerdown', event => {
+    if (!event.isPrimary || event.button !== 0) return;
+    finishTransition(kind);
     state.gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
       started: performance.now(), dx: 0, dy: 0, dragging: false };
     clearRotation(state);
   });
-  stage.addEventListener('pointermove', event => {
+  viewport.addEventListener('pointermove', event => {
     const gesture = state.gesture;
     if (!gesture || gesture.id !== event.pointerId) return;
     gesture.dx = event.clientX - gesture.x;
     gesture.dy = event.clientY - gesture.y;
     if (Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.3) {
       gesture.dragging = true;
-      if (!stage.hasPointerCapture(event.pointerId)) stage.setPointerCapture(event.pointerId);
+      if (!viewport.hasPointerCapture(event.pointerId)) viewport.setPointerCapture(event.pointerId);
       if (event.cancelable) event.preventDefault();
-      state.slide.style.transform = `translateX(${Math.max(-65, Math.min(65, gesture.dx * 0.3))}px)`;
+      state.track.style.transform = `translate3d(${-state.physical * viewport.clientWidth + gesture.dx}px, 0, 0)`;
     }
   });
   function finish(event) {
     const gesture = state.gesture;
     if (!gesture || gesture.id !== event.pointerId) return;
+    if (event.type === 'pointerup') {
+      gesture.dx = event.clientX - gesture.x;
+      gesture.dy = event.clientY - gesture.y;
+    }
     state.gesture = null;
-    state.slide.style.transform = '';
     const distance = Math.abs(gesture.dx);
     const speed = distance / Math.max(1, performance.now() - gesture.started);
-    const threshold = Math.max(35, Math.min(65, stage.clientWidth * 0.12));
+    const threshold = Math.max(35, Math.min(80, viewport.clientWidth * .12));
     const swipe = event.type === 'pointerup' && gesture.dragging &&
-      Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.3 &&
-      (distance >= threshold || (distance > 20 && speed > 0.45));
+      distance > Math.abs(gesture.dy) * 1.3 && (distance >= threshold || (distance > 20 && speed > .45));
     if (gesture.dragging) state.suppressClickUntil = performance.now() + 400;
-    if (swipe) goTo(kind, gesture.dx < 0 ? state.index + 1 : state.index - 1);
-    else scheduleRotation(kind);
-    if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+    const direction = gesture.dx < 0 ? 1 : -1;
+    if (gesture.dragging) goTo(kind, state.index + (swipe ? direction : 0), { direction, dragOffset: gesture.dx });
+    else {
+      state.track.style.transform = `translate3d(${-state.physical * 100}%, 0, 0)`;
+      scheduleRotation(kind);
+    }
+    if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
   }
-  stage.addEventListener('pointerup', finish);
-  stage.addEventListener('pointercancel', finish);
-  stage.addEventListener('lostpointercapture', event => {
-    // Touch starts with implicit capture on the child button. Its capture-loss
-    // event bubbles when we transfer capture to the stage; that is not a cancel.
-    if (event.target === stage && state.gesture?.id === event.pointerId &&
-        !stage.hasPointerCapture(event.pointerId)) finish(event);
+  viewport.addEventListener('pointerup', finish);
+  viewport.addEventListener('pointercancel', finish);
+  viewport.addEventListener('lostpointercapture', event => {
+    if (event.target === viewport && state.gesture?.id === event.pointerId &&
+        !viewport.hasPointerCapture(event.pointerId)) finish(event);
   });
-  stage.addEventListener('click', event => {
+  viewport.addEventListener('click', event => {
     if (performance.now() < state.suppressClickUntil) {
       event.preventDefault();
       event.stopPropagation();
     }
   }, true);
+}
+
+function createCarousel(kind) {
+  const root = document.querySelector(`#${kind}-content`);
+  const area = element('div', 'carousel-scroll-area');
+  root.before(area);
+  area.append(root);
+  root.setAttribute('role', 'region');
+  root.setAttribute('aria-roledescription', 'carousel');
+  root.setAttribute('aria-label', kind === 'music' ? 'Music releases' : 'Music videos');
+  const viewport = element('div', 'carousel-viewport');
+  viewport.id = `${kind}-viewport`;
+  const track = element('div', 'carousel-track');
+  viewport.append(track);
+  const dots = element('div', 'dots');
+  dots.setAttribute('role', 'group');
+  dots.setAttribute('aria-label', `Choose ${kind === 'music' ? 'a release' : 'a video'}`);
+  const toggle = button('rotation-toggle', 'Pause slideshow');
+  toggle.setAttribute('aria-controls', viewport.id);
+  const status = element('p', 'visually-hidden');
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  root.replaceChildren(viewport, dots, toggle, status);
+  const state = carousels[kind] = { root, area, viewport, track, dots, toggle, status, cells: [],
+    index: 0, physical: 1, paused: false, playerOpen: false, animation: null,
+    timer: null, gesture: null, suppressClickUntil: 0 };
+  const list = listFor(kind);
+  const sequence = [list[list.length - 1], ...list, list[0]];
+  sequence.forEach((item, physical) => {
+    const slide = element('div', 'slide');
+    slide.setAttribute('role', 'group');
+    slide.setAttribute('aria-roledescription', 'slide');
+    const index = ((physical - 1) % list.length + list.length) % list.length;
+    slide.setAttribute('aria-label', `${index + 1} of ${list.length}: ${item.title}`);
+    const media = element('div', 'media');
+    const title = element('h2', 'slide-title');
+    const link = element('a', '', item.title);
+    link.href = itemLink(kind, item);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    title.append(link);
+    slide.append(media, title);
+    const cell = { slide, media, title, item };
+    state.cells.push(cell);
+    renderMedia(kind, cell);
+    track.append(slide);
+  });
+  list.forEach((item, index) => {
+    const dot = button('dot', item.title);
+    dot.addEventListener('click', () => goTo(kind, index));
+    dots.append(dot);
+  });
+  toggle.addEventListener('click', () => {
+    if (state.playerOpen) { stopPlayers(kind); state.paused = false; updateBackground(); }
+    else state.paused = !state.paused;
+    updateControls(kind);
+    scheduleRotation(kind);
+  });
+  root.addEventListener('focusin', () => scheduleRotation(kind));
+  root.addEventListener('focusout', event => {
+    if (!viewport.contains(event.relatedTarget)) scheduleRotation(kind);
+  });
+  installSwipe(kind);
+  finishTransition(kind);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => fitCarousel(kind)).observe(area);
 }
 
 function panelFromLocation() {
@@ -300,11 +342,13 @@ function showPanel(name, { updateHistory = true, restoreFocus = false } = {}) {
   for (const [kind, state] of Object.entries(carousels)) {
     if (kind !== current) {
       clearRotation(state);
-      state.hovered = false;
       state.gesture = null;
-      if (state.playerOpen) renderSlide(kind);
+      finishTransition(kind);
+      stopPlayers(kind);
     } else {
-      if (!state.rendered) renderSlide(kind);
+      finishTransition(kind);
+      fitCarousel(kind);
+      state.cells[state.physical].media.querySelector('img')?.setAttribute('loading', 'eager');
       scheduleRotation(kind);
     }
   }
@@ -333,24 +377,9 @@ function showPanel(name, { updateHistory = true, restoreFocus = false } = {}) {
   updateBackground();
 }
 
-document.addEventListener('pointerdown', () => {
-  keyboardMode = false;
-  if (carousels[current]) scheduleRotation(current);
-}, true);
-document.addEventListener('pointermove', event => {
-  const state = carousels[current];
-  if (!state || event.pointerType !== 'mouse') return;
-  // Removing a focused iframe/player can skip the root's pointerleave event.
-  // Reconcile against the pointer's actual target so hover cannot stay stuck.
-  const hovered = state.root.contains(event.target);
-  if (hovered !== state.hovered) {
-    state.hovered = hovered;
-    scheduleRotation(current);
-  }
-}, true);
+document.addEventListener('pointerdown', () => { keyboardMode = false; }, true);
 document.addEventListener('keydown', event => {
   keyboardMode = true;
-  if (carousels[current]) scheduleRotation(current);
   if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
   if (event.key === 'Escape' && current) showPanel(null, { restoreFocus: true });
   if (carousels[current] && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
@@ -360,9 +389,15 @@ document.addEventListener('keydown', event => {
 });
 nav.forEach(item => item.addEventListener('click', () => showPanel(item.dataset.panel === current ? null : item.dataset.panel)));
 document.querySelectorAll('.close').forEach(item => item.addEventListener('click', () => showPanel(null, { restoreFocus: true })));
+document.querySelectorAll('.arrow').forEach(item => item.addEventListener('click', () => {
+  const kind = item.closest('.panel').id;
+  const direction = Number(item.dataset.direction);
+  goTo(kind, carousels[kind].index + direction, { direction });
+}));
 document.querySelector('.wordmark').addEventListener('click', () => showPanel(null));
 window.addEventListener('popstate', () => showPanel(panelFromLocation(), { updateHistory: false }));
 window.addEventListener('hashchange', () => showPanel(panelFromLocation(), { updateHistory: false }));
+window.addEventListener('resize', () => { if (carousels[current]) { finishTransition(current); fitCarousel(current); } });
 
 const background = document.querySelector('.backdrop');
 const motion = document.querySelector('.motion');
@@ -372,7 +407,7 @@ function updateMotion() {
   motion.textContent = background.paused ? 'Play background' : 'Pause background';
   motion.setAttribute('aria-pressed', String(!background.paused));
   motion.disabled = Object.values(carousels).some(state => state.playerOpen);
-  motion.title = motion.disabled ? 'Close the music or video player to resume the background.' : '';
+  motion.title = motion.disabled ? 'Resume the slideshow to resume the background.' : '';
 }
 
 function updateBackground() {
@@ -380,15 +415,11 @@ function updateBackground() {
   const shouldPlay = backgroundRequested && !document.hidden && !playerOpen;
   if (!shouldPlay) background.pause();
   else if (background.paused) {
-    if (!background.getAttribute('src')) {
-      background.src = data.video;
-      background.load();
-    }
+    if (!background.getAttribute('src')) { background.src = data.video; background.load(); }
     background.play().catch(() => updateMotion());
   }
   updateMotion();
 }
-
 background.addEventListener('play', updateMotion);
 background.addEventListener('pause', updateMotion);
 background.addEventListener('error', updateMotion);
@@ -402,15 +433,9 @@ document.addEventListener('visibilitychange', () => {
   for (const kind of Object.keys(carousels)) scheduleRotation(kind);
 });
 function updatePreferences() {
-  if (reducedMotion.matches || connection?.saveData) {
-    backgroundRequested = false;
-    for (const state of Object.values(carousels)) {
-      state.paused = true;
-      updateRotationControl(state);
-    }
-  }
+  if (reducedMotion.matches || connection?.saveData) backgroundRequested = false;
+  if (reducedMotion.matches) for (const kind of Object.keys(carousels)) finishTransition(kind);
   updateBackground();
-  for (const kind of Object.keys(carousels)) scheduleRotation(kind);
 }
 reducedMotion.addEventListener('change', updatePreferences);
 connection?.addEventListener('change', updatePreferences);

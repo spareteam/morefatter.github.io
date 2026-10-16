@@ -18,10 +18,11 @@ let origin;
 before(async () => {
   server = http.createServer((request, response) => {
     const name = new URL(request.url, 'http://localhost').pathname.slice(1) || 'index.html';
-    if (!publicFiles.has(name)) return response.writeHead(404).end();
+    const baseline = ['baseline.html', 'baseline.css'].includes(name);
+    if (!baseline && !publicFiles.has(name)) return response.writeHead(404).end();
     const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json' };
     response.setHeader('Content-Type', types[path.extname(name)]);
-    response.end(fs.readFileSync(path.join(servedRoot, name)));
+    response.end(fs.readFileSync(path.join(baseline ? path.join(__dirname, 'fixtures') : servedRoot, name)));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   origin = `http://127.0.0.1:${server.address().port}`;
@@ -38,11 +39,9 @@ after(async () => {
 async function openPage(options = {}) {
   const { saveData, clock = false, ...contextOptions } = options;
   const context = await browser.newContext(contextOptions);
-  if (saveData) {
-    await context.addInitScript(() => Object.defineProperty(navigator, 'connection', {
-      value: { saveData: true, addEventListener() {} },
-    }));
-  }
+  if (saveData) await context.addInitScript(() => Object.defineProperty(navigator, 'connection', {
+    value: { saveData: true, addEventListener() {} },
+  }));
   const page = await context.newPage();
   const requests = [];
   const errors = [];
@@ -54,9 +53,9 @@ async function openPage(options = {}) {
     requests.push({ url: url.href, type: request.resourceType() });
     if (url.pathname.endsWith('.mp4')) return route.fulfill({ path: fixture, contentType: 'video/webm' });
     if (request.resourceType() === 'image') return route.fulfill({ body: image, contentType: 'image/png' });
-    if (request.resourceType() === 'document') {
-      return route.fulfill({ body: '<!doctype html><title>Test player</title><button>Player controls</button>', contentType: 'text/html' });
-    }
+    if (request.resourceType() === 'document') return route.fulfill({
+      body: '<!doctype html><title>Test player</title><button>Player controls</button>', contentType: 'text/html',
+    });
     return route.abort();
   });
   if (clock) await page.clock.install();
@@ -66,14 +65,46 @@ async function openPage(options = {}) {
 
 async function choose(page, name) {
   await page.locator(`[data-panel="${name}"]`).click();
-  await page.mouse.move(1, 1);
 }
 
-async function counter(page, kind) {
-  return page.locator(`#${kind} .slide-counter`).innerText();
+async function index(page, kind) {
+  return Number(await page.locator(`#${kind}-content`).getAttribute('data-index'));
 }
 
-test('Small phones, landscape and desktop keep content and controls clear of the footer', async t => {
+function activePreview(page, kind) {
+  return page.locator(`#${kind} .slide[data-active="true"] .${kind === 'music' ? 'music-preview' : 'video-preview'}`);
+}
+
+async function styleSnapshot(page) {
+  return page.evaluate(() => {
+    const selectors = ['header', '.wordmark', '.nav', '.nav button', '.socials', '.socials img',
+      'footer', '.join', '.footer-image', '.footer-image.spotify', '.motion'];
+    const properties = ['position', 'fontFamily', 'fontSize', 'fontWeight', 'color', 'backgroundColor',
+      'borderRadius', 'paddingTop', 'paddingLeft', 'gap'];
+    return Object.fromEntries(selectors.map(selector => {
+      const node = document.querySelector(selector);
+      const style = getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      return [selector, { ...Object.fromEntries(properties.map(property => [property, style[property]])),
+        bounds: [rect.x, rect.y, rect.width, rect.height].map(value => Math.round(value * 10) / 10) }];
+    }));
+  });
+}
+
+test('Approved baseline typography, colors, controls and layout are preserved', async t => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context } = await openPage({ viewport, reducedMotion: 'reduce' });
+      try {
+        const actual = await styleSnapshot(page);
+        await page.goto(`${origin}/baseline.html`, { waitUntil: 'networkidle' });
+        assert.deepEqual(actual, await styleSnapshot(page));
+      } finally { await context.close(); }
+    });
+  }
+});
+
+test('Small phones, landscape and desktop keep carousel controls inside a usable scroll area', async t => {
   for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 },
     { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
     await t.test(`${viewport.width}×${viewport.height}`, async () => {
@@ -82,25 +113,20 @@ test('Small phones, landscape and desktop keep content and controls clear of the
         for (const kind of ['music', 'video']) {
           await choose(page, kind);
           const layout = await page.evaluate(kind => {
-            const bounds = selector => {
-              const rect = document.querySelector(selector).getBoundingClientRect();
-              return { top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
-            };
-            return {
-              main: bounds('main'), footer: bounds('footer'),
-              dots: bounds(`#${kind} .dots`), dot: bounds(`#${kind} .dot`),
-              controls: bounds(`#${kind} .carousel-controls`),
-              overflow: document.documentElement.scrollWidth > innerWidth,
-            };
+            const area = document.querySelector(`#${kind} .carousel-scroll-area`).getBoundingClientRect();
+            const footer = document.querySelector('footer').getBoundingClientRect();
+            const overlaps = area.left < footer.right && area.right > footer.left && area.top < footer.bottom && area.bottom > footer.top;
+            return { overlaps, overflow: document.documentElement.scrollWidth > innerWidth, height: area.height };
           }, kind);
+          assert.equal(layout.overlaps, false);
           assert.equal(layout.overflow, false);
-          assert(layout.footer.top >= layout.main.bottom, 'Footer must follow the panel');
-          assert(layout.dots.bottom <= layout.main.bottom, 'Pagination must stay within the panel');
-          assert(layout.controls.bottom <= layout.main.bottom, 'Controls must stay within the panel');
-          assert(layout.dot.width >= 44 && layout.dot.height >= 44, 'Dots need usable touch targets');
-          await page.locator(`#${kind} .next`).scrollIntoViewIfNeeded();
+          assert(layout.height > 0);
           await page.locator(`#${kind} .next`).click();
-          assert.equal(await counter(page, kind), `2 / ${kind === 'music' ? 8 : 10}`);
+          assert.equal(await index(page, kind), 1);
+          await page.locator(`#${kind} .dot`).last().click();
+          assert.equal(await index(page, kind), kind === 'music' ? 7 : 9);
+          assert.equal(await page.locator(`#${kind} .carousel-controls`).count(), 0);
+          assert.equal(await page.locator(`#${kind} .preview-title`).count(), 0);
         }
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
@@ -108,141 +134,153 @@ test('Small phones, landscape and desktop keep content and controls clear of the
   }
 });
 
-test('Both carousels advance at eight seconds, wrap, and respect pause controls', async () => {
+test('Both carousels advance every eight seconds even while hovered, wrap, and respect explicit pause', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 1440, height: 900 }, clock: true });
   try {
     for (const kind of ['music', 'video']) {
-      const count = kind === 'music' ? 8 : 10;
       await choose(page, kind);
-      await page.clock.fastForward(7900);
-      assert.equal(await counter(page, kind), `1 / ${count}`);
-      await page.clock.fastForward(200);
-      assert.equal(await counter(page, kind), `2 / ${count}`);
+      await activePreview(page, kind).hover();
+      await page.clock.fastForward(7000);
+      assert.equal(await index(page, kind), 0);
+      await page.clock.fastForward(1200);
+      assert.equal(await index(page, kind), 1, 'Hover must not disable auto-advance');
       await page.locator(`#${kind} .dot`).last().click();
-      await page.mouse.move(1, 1);
-      await page.clock.fastForward(12100);
-      assert.equal(await counter(page, kind), `1 / ${count}`);
-      await page.locator(`#${kind} .rotation-toggle`).click();
-      await page.mouse.move(1, 1);
-      await page.clock.fastForward(30000);
-      assert.equal(await counter(page, kind), `1 / ${count}`);
-      await page.locator(`#${kind} .rotation-toggle`).click();
-      await page.mouse.move(1, 1);
       await page.clock.fastForward(8100);
-      assert.equal(await counter(page, kind), `2 / ${count}`);
+      assert.equal(await index(page, kind), 0, 'Auto-advance should loop to the first item');
+      await page.locator(`#${kind} .rotation-toggle`).click();
+      await page.clock.fastForward(30000);
+      assert.equal(await index(page, kind), 0);
+      await page.locator(`#${kind} .rotation-toggle`).click();
+      await page.clock.fastForward(8100);
+      assert.equal(await index(page, kind), 1);
     }
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
 
-async function touchSwipe(page, dx, dy = 0) {
-  const stage = page.locator('.panel:not([hidden]) .carousel-stage');
-  await stage.scrollIntoViewIfNeeded();
-  const bounds = await stage.boundingBox();
+async function touchSwipe(page, dx, dy = 0, inspectDrag) {
+  const viewport = page.locator('.panel:not([hidden]) .carousel-viewport');
+  const area = page.locator('.panel:not([hidden]) .carousel-scroll-area');
+  const bounds = await viewport.boundingBox();
+  const visible = await area.boundingBox();
   const x = bounds.x + bounds.width / 2 - dx / 2;
-  const y = Math.max(120, Math.min(bounds.y + bounds.height / 2, 550));
+  const top = Math.max(bounds.y, visible.y);
+  const bottom = Math.min(bounds.y + bounds.height, visible.y + visible.height);
+  const y = (top + bottom) / 2;
   const client = await page.context().newCDPSession(page);
   const point = (x, y) => ({ x, y, id: 1, radiusX: 1, radiusY: 1, force: 1 });
   try {
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point(x, y)] });
-    for (let step = 1; step <= 6; step++) {
-      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point(x + dx * step / 6, y + dy * step / 6)] });
+    for (let step = 1; step <= 6; step++) await client.send('Input.dispatchTouchEvent', {
+      type: 'touchMove', touchPoints: [point(x + dx * step / 6, y + dy * step / 6)],
+    });
+    if (inspectDrag) {
+      // Native touch moves may be coalesced until the next rendered frame.
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await inspectDrag();
     }
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   } finally { await client.detach(); }
 }
 
-test('Native touch swipes browse both ways without opening a player, while vertical gestures scroll', async () => {
-  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
-    isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+test('Native swipes follow the finger and finish with a horizontal animation in both directions', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   try {
     for (const kind of ['music', 'video']) {
       await choose(page, kind);
-      const count = kind === 'music' ? 8 : 10;
-      await touchSwipe(page, -140);
-      assert.equal(await counter(page, kind), `2 / ${count}`);
-      assert.equal(await page.locator(`#${kind} iframe`).count(), 0);
+      const transform = () => page.locator(`#${kind} .carousel-track`).evaluate(track => new DOMMatrix(getComputedStyle(track).transform).m41);
+      const start = await transform();
+      await touchSwipe(page, -140, 0, async () => {
+        assert(Math.abs((await transform()) - start + 140) < 3, 'Slide must follow the finger at full distance');
+      });
+      assert.equal(await index(page, kind), 1);
+      assert.equal(await page.locator(`#${kind}-content`).getAttribute('data-animating'), 'true');
+      const animation = await page.locator(`#${kind} .carousel-track`).evaluate(track => track.getAnimations()[0]?.effect.getKeyframes());
+      assert(animation?.length >= 2 && animation[0].transform !== animation[1].transform, 'Swipe needs a real horizontal transition');
+      await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.animating === 'false', kind);
+      assert.equal(await page.locator('iframe').count(), 0, 'Swiping must not activate a player');
       await touchSwipe(page, 140);
-      assert.equal(await counter(page, kind), `1 / ${count}`);
-      const previousScroll = await page.evaluate(() => scrollY);
-      await touchSwipe(page, 0, -140);
-      assert.equal(await counter(page, kind), `1 / ${count}`);
-      assert(await page.evaluate(() => scrollY) > previousScroll, 'Vertical gestures should scroll the page');
+      assert.equal(await index(page, kind), 0);
+      await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.animating === 'false', kind);
     }
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
 
-test('Players load on demand and stop rotation and the decorative background until closed', async () => {
+test('Short landscape screens scroll the carousel vertically without changing slides', async () => {
+  const { page, context } = await openPage({ viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  try {
+    await choose(page, 'music');
+    await touchSwipe(page, 0, -80);
+    await page.waitForFunction(() => document.querySelector('#music .carousel-scroll-area').scrollTop > 0);
+    assert.equal(await index(page, 'music'), 0);
+  } finally { await context.close(); }
+});
+
+test('Players load on demand and suspend rotation and background video until slideshow resume', async () => {
   const { page, context, requests, errors } = await openPage({ clock: true });
   try {
     await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
     for (const kind of ['music', 'video']) {
       await choose(page, kind);
       assert.equal(await page.locator('iframe').count(), 0);
-      const beforeRequests = requests.filter(request => request.type === 'document').length;
-      const beforeCounter = await counter(page, kind);
-      await page.locator(`#${kind} .play-preview`).click();
-      await page.mouse.move(1, 1);
+      const count = requests.filter(request => request.type === 'document').length;
+      await activePreview(page, kind).click();
       await page.locator(`#${kind} iframe`).waitFor();
-      assert.equal(requests.filter(request => request.type === 'document').length, beforeRequests + 1);
+      assert.equal(requests.filter(request => request.type === 'document').length, count + 1);
       assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
-      assert.equal(await page.locator('.motion').isDisabled(), true);
       await page.clock.fastForward(30000);
-      assert.equal(await counter(page, kind), beforeCounter);
-      await page.locator(`#${kind} .close-player`).click();
-      await page.mouse.move(1, 1);
+      assert.equal(await index(page, kind), 0);
+      assert.equal(await page.locator(`#${kind} .rotation-toggle`).innerText(), 'Resume slideshow');
+      await page.locator(`#${kind} .rotation-toggle`).click();
       assert.equal(await page.locator('iframe').count(), 0);
       await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
-      await page.clock.fastForward(12100);
-      assert.notEqual(await counter(page, kind), beforeCounter);
+      await page.clock.fastForward(8100);
+      assert.equal(await index(page, kind), 1);
     }
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
 
-test('Reduced motion and data saving avoid background video downloads and automatic rotation', async () => {
+test('Reduced motion and data saving keep the background unloaded without silently disabling auto-advance', async () => {
   for (const options of [{ reducedMotion: 'reduce' }, { saveData: true }]) {
     const { page, context, requests } = await openPage({ ...options, clock: true });
     try {
       await choose(page, 'music');
-      await page.clock.fastForward(30000);
-      assert.equal(await counter(page, 'music'), '1 / 8');
+      assert.equal(await page.locator('#music .rotation-toggle').innerText(), 'Pause slideshow');
+      await page.clock.fastForward(8100);
+      assert.equal(await index(page, 'music'), 1);
       assert.equal(await page.locator('.backdrop').getAttribute('src'), null);
       assert.equal(requests.some(request => request.url.includes('.mp4')), false);
-      assert.equal(await page.locator('#music .rotation-toggle').innerText(), 'Play slideshow');
+      if (options.reducedMotion) assert.equal(await page.locator('#music-content').getAttribute('data-animating'), 'false');
     } finally { await context.close(); }
   }
 });
 
-test('Visibility and hover suspend rotation; hiding the tab pauses its background', async () => {
+test('Hiding the tab suspends rotation and background playback', async () => {
   const { page, context } = await openPage({ clock: true });
   try {
     await choose(page, 'music');
-    await page.locator('#music .carousel-stage').hover();
-    await page.clock.fastForward(20000);
-    assert.equal(await counter(page, 'music'), '1 / 8');
-    await page.mouse.move(1, 1);
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: true });
       document.dispatchEvent(new Event('visibilitychange'));
     });
     await page.clock.fastForward(20000);
-    assert.equal(await counter(page, 'music'), '1 / 8');
+    assert.equal(await index(page, 'music'), 0);
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: false });
       document.dispatchEvent(new Event('visibilitychange'));
     });
     await page.clock.fastForward(8100);
-    assert.equal(await counter(page, 'music'), '2 / 8');
+    assert.equal(await index(page, 'music'), 1);
   } finally { await context.close(); }
 });
 
-test('Mailing list opens the actual Mailchimp form; Back and section URLs stay in sync', async () => {
+test('The original JOIN control opens Mailchimp and browser navigation stays in sync', async () => {
   const { page, context } = await openPage({ reducedMotion: 'reduce' });
   try {
-    const signup = page.getByRole('link', { name: /join the mailing list/i });
+    const signup = page.getByRole('link', { name: 'Join the mailing list', exact: true });
     assert.equal(await signup.getAttribute('href'), 'https://mailchi.mp/e55a52839a47/mf');
     const popupPromise = page.waitForEvent('popup');
     await signup.click();
@@ -250,7 +288,6 @@ test('Mailing list opens the actual Mailchimp form; Back and section URLs stay i
     await popup.waitForLoadState('domcontentloaded');
     assert.equal(popup.url(), 'https://mailchi.mp/e55a52839a47/mf');
     await popup.close();
-    assert.equal(await page.locator('input[type="email"]').count(), 0, 'Fans enter their email only in the real form');
     await choose(page, 'music');
     await choose(page, 'video');
     await page.goBack();

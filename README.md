@@ -24,9 +24,10 @@ The current rebuild has not yet been visually compared with the live original, s
 - Eight-second slideshow rotation, pause controls, keyboard navigation, and touch swiping
 - Live Songkick tour widget
 - Original Shopify collection and checkout integration (loaded on opening Shop)
-- Scrolling phone/landscape layouts, 44-pixel carousel controls, and responsive navigation
+- Original typography, colors, navigation, arrows, pagination, and footer styling
+- Carousel content fits or scrolls within the original panels on small and landscape screens
 - Background video stays unloaded for reduced-motion/data-saving preferences; playback pauses while the tab is hidden or a music/video player is open
-- Real Mailchimp signup through the band's hosted subscription form
+- Original JOIN control opens the band's real Mailchimp subscription form
 
 ## Editing
 `index.html` contains content in the `site-data` JSON block; `content.json` is its readable reference copy. Update both when changing releases or videos. Styles are in `style.css`; interactions in `app.js`.
