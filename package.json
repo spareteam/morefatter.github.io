@@ -1,0 +1,14 @@
+{
+  "name": "more-fatter-website",
+  "private": true,
+  "scripts": {
+    "check": "node --check app.js && node --check shop.js && node scripts/check-site.mjs",
+    "test": "node --test tests/browser.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

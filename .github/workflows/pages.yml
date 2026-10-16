@@ -25,10 +25,13 @@ jobs:
       - name: Get website
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Check website
-        run: |
-          node --check app.js
-          node --check shop.js
-          node scripts/check-site.mjs
+        run: npm run check
+      - name: Install browser test tools
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test website interactions and layouts
+        run: npm test
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - name: Prepare website files

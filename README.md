@@ -11,7 +11,7 @@ One-time setup: open [Pages settings](https://github.com/spareteam/morefatter.gi
 
 After a successful deployment, use **Open the website** above. The workflow summary also includes the actual published URL. The workflow checks JavaScript syntax, verifies content consistency, and packages only public website files.
 
-For local development, run `python3 -m http.server 8000` in this folder. Run `node --check app.js`, `node --check shop.js`, and `node scripts/check-site.mjs` before publishing.
+For local development, run `python3 -m http.server 8000` in this folder. Run `npm run check` before publishing. The website itself has no runtime dependencies. For browser regression tests, run `npm ci`, `npx playwright install chromium`, and `npm test`. The tests use intercepted third-party requests and a tiny generated test video; they do not subscribe real email addresses, make purchases, or validate live third-party services. GitHub runs these tests before publishing.
 
 ## Migration status
 
@@ -19,11 +19,14 @@ The current rebuild has not yet been visually compared with the live original, s
 
 ## Contents
 - Full-screen original background film and Advert wordmark
-- Eight release slides with Feature.fm players and original artwork
-- Ten YouTube videos, keyboard/swipe controls and pagination
+- Eight release slides with click-to-load Feature.fm players and original artwork
+- Ten YouTube videos with thumbnail previews; players load only after a click
+- Eight-second slideshow rotation, pause controls, keyboard navigation, and touch swiping
 - Live Songkick tour widget
 - Original Shopify collection and checkout integration (loaded on opening Shop)
-- Responsive navigation, social links, reduced-motion support and background pause control
+- Scrolling phone/landscape layouts, 44-pixel carousel controls, and responsive navigation
+- Background video stays unloaded for reduced-motion/data-saving preferences; playback pauses while the tab is hidden or a music/video player is open
+- Real Mailchimp signup through the band's hosted subscription form
 
 ## Editing
 `index.html` contains content in the `site-data` JSON block; `content.json` is its readable reference copy. Update both when changing releases or videos. Styles are in `style.css`; interactions in `app.js`.
@@ -31,6 +34,6 @@ The current rebuild has not yet been visually compared with the live original, s
 ## Service dependencies
 The original video, artwork, font and social images remain on the existing Webflow CDN. Feature.fm, YouTube, Songkick and Shopify remain external services. Preserve those services or migrate the media before cancelling the original hosting. The Shopify Storefront token in shop.js is the public browser token used by the original site, not an admin credential.
 
-Email collection cannot be migrated from public page code: the original form uses Webflow hosting. The rebuilt form explicitly tells visitors that no email has been submitted and links to the original signup. Connect a mailing-list provider before retiring Webflow. No false success messages are shown.
+The mailing-list button opens the band's real Mailchimp signup form at https://mailchi.mp/e55a52839a47/mf. Fans enter their email and complete any confirmation on Mailchimp; the website does not collect an address separately or claim a subscription has succeeded. No private mailing-list credentials are stored in this repository.
 
 No custom domain is configured, so this does not change morefatter.band or its DNS.
