@@ -4,6 +4,8 @@
 .carousel-scroll-area{height:100%;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:thin}
 .carousel{height:auto;min-height:100%}
 .carousel-viewport{width:100%;flex-shrink:0;overflow:hidden;touch-action:pan-y pinch-zoom}
+.carousel-viewport,.carousel-viewport *{cursor:grab}
+.carousel-viewport:active,.carousel-viewport:active *{cursor:grabbing}
 .carousel-track{display:flex;width:100%;align-items:flex-start;will-change:transform}
 .carousel-track .slide{flex:0 0 100%;min-width:0;user-select:none;-webkit-user-select:none}
 .carousel-track .slide-title{max-width:100%;overflow-wrap:anywhere}
