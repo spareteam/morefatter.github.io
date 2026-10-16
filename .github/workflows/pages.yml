@@ -31,7 +31,19 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Test website interactions and layouts
-        run: npm test
+        id: browser-tests
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/morefatter-browser-tests.log
+      - name: Explain a browser test failure
+        if: failure() && steps.browser-tests.outcome == 'failure'
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const log = readFileSync('/tmp/morefatter-browser-tests.log', 'utf8').slice(-30000);
+          const message = log.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+          console.log(`::error title=Browser test details::${message}`);
+          NODE
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - name: Prepare website files
