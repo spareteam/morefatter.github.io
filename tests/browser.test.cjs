@@ -6,8 +6,10 @@ const http = require('node:http');
 const { chromium } = require('playwright');
 
 const root = path.resolve(__dirname, '..');
+const servedRoot = process.env.TEST_BUILT_SITE ? path.join(root, '_site') : root;
 const fixture = path.join(__dirname, 'fixtures/background.webm');
-const publicFiles = new Set(['index.html', 'style.css', 'app.js', 'shop.js', 'content.json']);
+const publicFiles = new Set(process.env.TEST_BUILT_SITE ? fs.readdirSync(servedRoot) :
+  ['index.html', 'style.css', 'app.js', 'shop.js', 'content.json']);
 const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=', 'base64');
 let server;
 let browser;
@@ -19,7 +21,7 @@ before(async () => {
     if (!publicFiles.has(name)) return response.writeHead(404).end();
     const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json' };
     response.setHeader('Content-Type', types[path.extname(name)]);
-    response.end(fs.readFileSync(path.join(root, name)));
+    response.end(fs.readFileSync(path.join(servedRoot, name)));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   origin = `http://127.0.0.1:${server.address().port}`;

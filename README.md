@@ -9,7 +9,7 @@ The link works once GitHub Pages is enabled and deployment has completed. No dow
 ## Publish on GitHub Pages
 One-time setup: open [Pages settings](https://github.com/spareteam/morefatter.github.io/settings/pages), then choose **GitHub Actions** under **Build and deployment → Source**. The website workflow publishes changes to `master` automatically. If its first run happened before Pages was enabled, open [Publish website](https://github.com/spareteam/morefatter.github.io/actions/workflows/pages.yml), choose **Run workflow**, and select `master`.
 
-After a successful deployment, use **Open the website** above. The workflow summary also includes the actual published URL. The workflow checks JavaScript syntax, verifies content consistency, and packages only public website files.
+After a successful deployment, use **Open the website** above. The workflow summary also includes the actual published URL. The workflow checks JavaScript syntax, verifies content consistency, and packages only public website files. `npm run build` generates `_site` with versioned CSS and JavaScript filenames so browsers load the matching assets after each update. The published `build-info.json` identifies the deployed commit.
 
 For local development, run `python3 -m http.server 8000` in this folder. Run `npm run check` before publishing. The website itself has no runtime dependencies. For browser regression tests, run `npm ci`, `npx playwright install chromium`, and `npm test`. The tests use intercepted third-party requests and a tiny generated test video; they do not subscribe real email addresses, make purchases, or validate live third-party services. GitHub runs these tests before publishing.
 

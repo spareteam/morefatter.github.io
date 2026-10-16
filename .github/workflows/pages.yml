@@ -30,8 +30,12 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      - name: Prepare website files
+        run: npm run build
       - name: Test website interactions and layouts
         id: browser-tests
+        env:
+          TEST_BUILT_SITE: '1'
         run: |
           set -o pipefail
           npm test 2>&1 | tee /tmp/morefatter-browser-tests.log
@@ -46,11 +50,6 @@ jobs:
           NODE
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-      - name: Prepare website files
-        run: |
-          mkdir -p _site
-          cp index.html style.css app.js shop.js content.json .nojekyll _site/
-          if [ -d assets ]; then cp -R assets _site/; fi
       - name: Upload website
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:

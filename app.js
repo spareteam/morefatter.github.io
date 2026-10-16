@@ -35,10 +35,10 @@ function clearRotation(state) {
   state.timer = null;
 }
 
-function scheduleRotation(kind) {
+function scheduleRotation(kind, focusedElement = document.activeElement) {
   const state = carousels[kind];
   clearRotation(state);
-  const keyboardInside = keyboardMode && state.root.contains(document.activeElement) && !state.allowFocusedRotation;
+  const keyboardInside = keyboardMode && state.root.contains(focusedElement) && !state.allowFocusedRotation;
   if (current !== kind || state.paused || state.hovered || state.playerOpen ||
       state.gesture || document.hidden || keyboardInside) return;
   const delay = Math.max(ROTATION_DELAY, state.interactionUntil - Date.now());
@@ -112,7 +112,7 @@ function createCarousel(kind) {
     state.allowFocusedRotation = false;
     scheduleRotation(kind);
   });
-  root.addEventListener('focusout', () => setTimeout(() => scheduleRotation(kind), 0));
+  root.addEventListener('focusout', event => scheduleRotation(kind, event.relatedTarget));
   installSwipe(kind);
   updateRotationControl(state);
 }
@@ -319,7 +319,7 @@ function showPanel(name, { updateHistory = true, restoreFocus = false } = {}) {
   if (current === 'shop' && !shopLoaded) {
     shopLoaded = true;
     const script = element('script');
-    script.src = 'shop.js';
+    script.src = document.querySelector('script[data-shop-script]')?.dataset.shopScript || 'shop.js';
     script.async = true;
     script.onerror = () => { shopLoaded = false; };
     document.body.append(script);
@@ -336,6 +336,17 @@ function showPanel(name, { updateHistory = true, restoreFocus = false } = {}) {
 document.addEventListener('pointerdown', () => {
   keyboardMode = false;
   if (carousels[current]) scheduleRotation(current);
+}, true);
+document.addEventListener('pointermove', event => {
+  const state = carousels[current];
+  if (!state || event.pointerType !== 'mouse') return;
+  // Removing a focused iframe/player can skip the root's pointerleave event.
+  // Reconcile against the pointer's actual target so hover cannot stay stuck.
+  const hovered = state.root.contains(event.target);
+  if (hovered !== state.hovered) {
+    state.hovered = hovered;
+    scheduleRotation(current);
+  }
 }, true);
 document.addEventListener('keydown', event => {
   keyboardMode = true;
