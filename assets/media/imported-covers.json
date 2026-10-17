@@ -1,0 +1,22 @@
+{
+  "entries": [
+    {
+      "source": "https://imagestore.ffm.to/link/1aa9337bf9415cc50cb9db43c469cf9e.jpeg",
+      "path": "assets/covers/good-morning-el-sereno.jpeg",
+      "sha256": "8c942173574e62ae581d64e9d3488447178a3ae5a045faeb2987b2efd78820f3",
+      "bytes": 140426
+    },
+    {
+      "source": "https://imagestore.ffm.to/link/84569b08255a459455914684fb6e69aa.jpeg",
+      "path": "assets/covers/fat-chance.jpeg",
+      "sha256": "49c1d66384501327c561488d09ee82797d84cf5e6fce8398a9309f7ba3c93fe6",
+      "bytes": 105243
+    },
+    {
+      "source": "https://imagestore.ffm.to/link/a86166357276b269649b918b6f86d30f.jpeg",
+      "path": "assets/covers/fat-chance-acoustic.jpeg",
+      "sha256": "82f662ed3ba6729b347d529e8fe93e6fcc6262f8f4cbc40e4ab816dab8c66408",
+      "bytes": 149285
+    }
+  ]
+}
