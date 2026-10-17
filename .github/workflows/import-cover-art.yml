@@ -1,0 +1,49 @@
+name: Import original cover artwork
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Get website
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download the band's three original cover files
+        run: |
+          python3 <<'PY'
+          import hashlib, json, pathlib, subprocess
+          originals = [
+              ('https://imagestore.ffm.to/link/1aa9337bf9415cc50cb9db43c469cf9e.jpeg', 'assets/covers/good-morning-el-sereno.jpeg'),
+              ('https://imagestore.ffm.to/link/84569b08255a459455914684fb6e69aa.jpeg', 'assets/covers/fat-chance.jpeg'),
+              ('https://imagestore.ffm.to/link/a86166357276b269649b918b6f86d30f.jpeg', 'assets/covers/fat-chance-acoustic.jpeg'),
+          ]
+          records = []
+          for source, name in originals:
+              path = pathlib.Path(name)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              subprocess.run(['curl', '--fail', '--show-error', '--location', '--retry', '3', '--max-time', '45', '--output', str(path), source], check=True)
+              data = path.read_bytes()
+              if not data.startswith(b'\xff\xd8\xff') or not 4096 < len(data) < 20_000_000:
+                  raise RuntimeError('The artwork response is not an expected JPEG: ' + name)
+              records.append({'source': source, 'path': name, 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)})
+          report = pathlib.Path('assets/media/imported-covers.json')
+          report.parent.mkdir(parents=True, exist_ok=True)
+          report.write_text(json.dumps({'entries': records}, indent=2) + '\n')
+          PY
+      - name: Save files on a review branch
+        env:
+          IMPORT_BRANCH: codex/import-cover-art-${{ github.run_id }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$IMPORT_BRANCH"
+          git add assets/covers/good-morning-el-sereno.jpeg assets/covers/fat-chance.jpeg assets/covers/fat-chance-acoustic.jpeg assets/media/imported-covers.json
+          git commit -m 'Import original More Fatter cover artwork'
+          git push origin "$IMPORT_BRANCH"
