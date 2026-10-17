@@ -141,10 +141,45 @@ test('Owned artwork, logos, font and background video work without third-party m
     await page.locator('.motion').click();
     await page.waitForFunction(() => {
       const video = document.querySelector('.backdrop');
+      if (video.error) throw new Error(`The test browser could not decode the original H.264 film: ${video.error.message}`);
       return !video.paused && video.readyState >= 2 && video.videoWidth > 0;
     });
     assert.equal(await page.locator('.backdrop').evaluate(video => new URL(video.currentSrc).origin === location.origin), true);
     assert.equal(requests.some(request => /website-files\.com|ffmcdn\.com|imagestore\.ffm\.to/.test(new URL(request.url).hostname)), false);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Original title pulse and bird flutter loop locally and respect pause and reduced motion', async () => {
+  const { page, context, requests, errors } = await openPage({ clock: true });
+  try {
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-brand-animation]')]
+      .every(container => container.dataset.animationState === 'playing'));
+    const frames = () => page.evaluate(() => lottie.getRegisteredAnimations().map(animation => ({
+      name: animation.name, frame: animation.currentFrame, paused: animation.isPaused,
+      loop: animation.loop, frames: animation.totalFrames, rate: animation.frameRate,
+    })).sort((a, b) => a.name.localeCompare(b.name)));
+    const initial = await frames();
+    assert.deepEqual(initial.map(({ name, loop, frames, rate }) => ({ name, loop, frames, rate })), [
+      { name: 'bird', loop: true, frames: 40, rate: 30 },
+      { name: 'title', loop: true, frames: 50, rate: 25 },
+    ]);
+    await page.clock.runFor(650);
+    const moving = await frames();
+    assert(moving.every((animation, index) => !animation.paused && animation.frame !== initial[index].frame));
+    assert.equal(await page.locator('.links-mark').getAttribute('href'), 'https://www.linktr.ee/morefatter');
+    assert.equal(await page.locator('.links-mark .brand-player svg').count(), 1);
+    await page.locator('.motion').click();
+    const paused = await frames();
+    assert(paused.every(animation => animation.paused));
+    await page.clock.runFor(500);
+    assert.deepEqual(await frames(), paused);
+    await page.locator('.motion').click();
+    await page.clock.runFor(200);
+    assert((await frames()).every(animation => !animation.paused));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() => lottie.getRegisteredAnimations().every(animation => animation.isPaused && animation.currentFrame === 0));
+    assert.equal(requests.some(request => /website-files\.com|ffmcdn\.com/.test(new URL(request.url).hostname)), false);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
@@ -179,6 +214,58 @@ test('The link helper shows only unfinished services, rejects invalid links and 
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
+});
+
+test('Tour and merch scroll inside their containers while padded close buttons stay reachable', async t => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 },
+    { width: 320, height: 568 }, { width: 844, height: 390 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context, errors } = await openPage({ viewport, reducedMotion: 'reduce', clock: true });
+      try {
+        for (const kind of ['tour', 'shop']) {
+          await choose(page, kind);
+          const selector = kind === 'tour' ? '.tour-wrap' : '.shop-wrap';
+          await page.locator(selector).evaluate(container => {
+            const spacer = document.createElement('div');
+            spacer.style.height = '1600px';
+            const last = document.createElement('button');
+            last.className = 'test-last-item';
+            last.textContent = 'Last event or product';
+            container.append(spacer, last);
+          });
+          const close = page.locator(`#${kind} > .close`);
+          const checkClose = async () => {
+            const panel = await page.locator(`#${kind}`).boundingBox();
+            const bounds = await close.boundingBox();
+            assert(bounds.x >= panel.x + 8 && bounds.y >= panel.y + 8 &&
+              bounds.x + bounds.width <= panel.x + panel.width - 8 && bounds.y + bounds.height <= panel.y + panel.height,
+              `${kind}: the whole close button needs padding inside its container`);
+            assert.equal(await close.evaluate(button => {
+              const bounds = button.getBoundingClientRect();
+              return document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2) === button;
+            }), true, `${kind}: the close button must remain clickable`);
+          };
+          await checkClose();
+          const last = page.locator(`${selector} .test-last-item`);
+          await last.scrollIntoViewIfNeeded();
+          const scrolling = await page.locator(selector).evaluate(container => ({
+            inner: container.scrollTop, outer: container.parentElement.scrollTop,
+            page: document.scrollingElement.scrollTop,
+          }));
+          assert(scrolling.inner > 0, `${kind}: long contents should scroll inside the container`);
+          assert.equal(scrolling.outer, 0);
+          assert.equal(scrolling.page, 0);
+          const innerBounds = await page.locator(selector).boundingBox();
+          const lastBounds = await last.boundingBox();
+          assert(lastBounds.y >= innerBounds.y && lastBounds.y + lastBounds.height <= innerBounds.y + innerBounds.height + 1);
+          await checkClose();
+          await close.click();
+          assert.equal(await page.locator(`#${kind}`).isVisible(), false);
+        }
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+  }
 });
 
 test('Small phones, landscape and desktop keep carousel controls inside a usable scroll area', async t => {
@@ -725,6 +812,11 @@ test('Signup fits between the site controls with an accessible form even when lo
         const submit = await dialog.getByRole('button', { name: 'Continue to Mailchimp' }).boundingBox();
         assert(submit.y >= bounds.y && submit.y + submit.height <= bounds.y + bounds.height);
         const note = dialog.locator('.signup-copy');
+        assert.deepEqual(await note.evaluate(element => {
+          const signup = getComputedStyle(element);
+          const tour = getComputedStyle(document.querySelector('.tour-wrap'));
+          return [signup.scrollbarWidth === tour.scrollbarWidth, signup.scrollbarColor === tour.scrollbarColor];
+        }), [true, true], 'Signup and Tour must share the same subtle scrollbar styling');
         await dialog.locator('.signup-signoff').scrollIntoViewIfNeeded();
         const signoff = await dialog.locator('.signup-signoff').boundingBox();
         const copy = await note.boundingBox();

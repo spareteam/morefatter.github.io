@@ -32,6 +32,10 @@ for (const entry of media.entries) {
   assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'), entry.sha256,
     `Imported asset checksum differs: ${entry.path}`);
 }
+for (const match of html.matchAll(/data-brand-animation="([^"]+)"/g)) localAsset(match[1], 'Original logo animation');
+const player = JSON.parse(readFileSync(resolve(root, 'assets/vendor/sources.json'), 'utf8'));
+assert.equal(createHash('sha256').update(readFileSync(localAsset(player.file, 'Local animation player'))).digest('hex'), player.sha256,
+  'The bundled animation player must match its recorded checksum.');
 for (const key of ['music', 'videos']) {
   assert(Array.isArray(data[key]) && data[key].length > 0, `${key} must contain content.`);
   for (const item of data[key]) {

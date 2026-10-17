@@ -34,12 +34,31 @@
 @container(max-width:220px){.stream-service{grid-template-columns:20px minmax(0,1fr);gap:6px;padding:6px;min-height:44px;font-size:12px}.stream-icon{width:20px;height:20px}.stream-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stream-action{font-size:10px}}
 .carousel-viewport .stream-options,.carousel-viewport .stream-options *{cursor:auto;user-select:text;-webkit-user-select:text}
 .carousel-viewport .stream-options a,.carousel-viewport .stream-options a *,.carousel-viewport .stream-options button{cursor:pointer}
-#shop{left:0;right:0;width:min(640px,48vw);margin-inline:auto}
-#shop>.close{top:0;right:0}
+#shop{left:0;right:0;width:min(640px,48vw);margin-inline:auto;overflow:visible}
+#tour{left:0;right:0;width:min(760px,calc(100vw - 260px));margin-inline:auto;overflow:visible}
+#tour>.close,#shop>.close{top:12px;right:12px}
+.tour-wrap,.shop-wrap{max-height:100%;overflow-y:auto;overscroll-behavior-y:contain;padding-top:32px}
+.tour-wrap,.shop-wrap,.signup-copy{scrollbar-width:thin;scrollbar-color:#ffffff55 transparent}
+.tour-wrap::-webkit-scrollbar,.shop-wrap::-webkit-scrollbar,.signup-copy::-webkit-scrollbar{width:6px}
+.tour-wrap::-webkit-scrollbar-track,.shop-wrap::-webkit-scrollbar-track,.signup-copy::-webkit-scrollbar-track{background:transparent}
+.tour-wrap::-webkit-scrollbar-thumb,.shop-wrap::-webkit-scrollbar-thumb,.signup-copy::-webkit-scrollbar-thumb{background:#ffffff55;border-radius:3px}
+.tour-wrap::-webkit-scrollbar-thumb:hover,.shop-wrap::-webkit-scrollbar-thumb:hover,.signup-copy::-webkit-scrollbar-thumb:hover{background:#ffffff80}
 .join .signup-line{display:inline-block;width:180px;height:27px;border-bottom:1px solid #fff}
 .join .signup-join{font-size:12px;line-height:normal;border:1px solid #fff;padding:3px 6px}
 @media(max-width:700px){.media .cover{width:min(100%,42svh,var(--media-limit,10000px))}.join .signup-line{width:130px}}
-@media(max-width:700px){#shop{left:22px;right:22px;width:auto}}
+@media(max-width:700px){#tour,#shop{left:22px;right:22px;width:auto}}
+
+/* Original vector title and bird artwork; the player uses their original motion. */
+.wordmark{display:block;width:280px;height:44.8px;padding:0}
+.links-mark{display:block;width:45px;height:38px}
+.brand-animation{display:block;position:relative;width:100%;height:100%}
+.brand-fallback{display:block;width:100%;height:100%;object-fit:contain}
+.brand-player{position:absolute;inset:0}
+.brand-player svg{display:block;width:100%;height:100%}
+.brand-animation.is-ready>.brand-fallback{visibility:hidden}
+@media(max-width:991px){.wordmark{width:330px;height:52.8px}}
+@media(max-width:700px){.links-mark{height:30px}}
+@media(max-width:479px){.wordmark{width:240px;height:38.4px}}
 
 /* Mailing-list invitation. */
 .signup-dialog{inset:120px 0 130px;width:min(640px,48vw);max-width:calc(100vw - 44px);max-height:min(560px,calc(100svh - 250px));margin:auto;padding:0;overflow:hidden;border:1px solid #ffffff60;background:#0b0b0bf5;color:#fff;text-align:left}

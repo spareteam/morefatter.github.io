@@ -6,6 +6,7 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const connection = navigator.connection;
 const ROTATION_DELAY = 3000;
 const carousels = {};
+const brandAnimations = [];
 let current = null;
 let keyboardMode = false;
 let shopLoaded = false;
@@ -471,6 +472,7 @@ function updateBackground() {
     background.play().catch(() => updateMotion());
   }
   updateMotion();
+  updateBrandAnimations();
 }
 background.addEventListener('play', updateMotion);
 background.addEventListener('pause', updateMotion);
@@ -491,6 +493,40 @@ function updatePreferences() {
 }
 reducedMotion.addEventListener('change', updatePreferences);
 connection?.addEventListener('change', updatePreferences);
+
+function updateBrandAnimations() {
+  for (const state of brandAnimations) {
+    if (!state.loaded) continue;
+    const playing = backgroundRequested && !reducedMotion.matches && !document.hidden && !signupOpen &&
+      !Object.values(carousels).some(carousel => carousel.playerOpen);
+    if (playing) state.animation.play();
+    else if (reducedMotion.matches) state.animation.goToAndStop(0, true);
+    else state.animation.pause();
+    state.container.dataset.animationState = playing ? 'playing' : 'paused';
+  }
+}
+
+function installBrandAnimations() {
+  if (!window.lottie) return;
+  for (const container of document.querySelectorAll('[data-brand-animation]')) {
+    const animation = window.lottie.loadAnimation({
+      container: container.querySelector('.brand-player'), renderer: 'svg', loop: true, autoplay: false,
+      path: container.dataset.brandAnimation, name: container.dataset.brandName,
+    });
+    const state = { animation, container, loaded: false };
+    brandAnimations.push(state);
+    animation.addEventListener('DOMLoaded', () => {
+      state.loaded = true;
+      container.classList.add('is-ready');
+      updateBrandAnimations();
+    });
+    animation.addEventListener('data_failed', () => {
+      state.loaded = false;
+      container.classList.remove('is-ready');
+      animation.destroy();
+    });
+  }
+}
 
 function installSignup() {
   const dialog = document.querySelector('#signup-dialog');
@@ -597,6 +633,7 @@ function installSignup() {
   return { offer };
 }
 
+installBrandAnimations();
 createCarousel('music');
 createCarousel('video');
 showPanel(panelFromLocation(), { updateHistory: false });

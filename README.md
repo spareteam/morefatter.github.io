@@ -1,6 +1,6 @@
 # More Fatter
 
-A dependency-free HTML/CSS/JavaScript rebuild of morefatter.band.
+A static HTML/CSS/JavaScript rebuild of morefatter.band.
 
 **[Open the website](https://spareteam.github.io/morefatter.github.io/)**
 
@@ -11,14 +11,16 @@ One-time setup: open [Pages settings](https://github.com/spareteam/morefatter.gi
 
 After a successful deployment, use **Open the website** above. The workflow summary also includes the actual published URL. The workflow checks JavaScript syntax, verifies content consistency, and packages only public website files. `npm run build` generates `_site` with versioned CSS and JavaScript filenames so browsers load the matching assets after each update. The published `build-info.json` identifies the deployed commit.
 
-For local development, run `python3 -m http.server 8000` in this folder. Run `npm run check` before publishing. The website itself has no runtime dependencies. For browser regression tests, run `npm ci`, `npx playwright install chromium`, and `npm test`. Interaction tests use intercepted third-party requests and a tiny generated test video. A separate media check decodes the actual local images, font, and background film without external media requests. The tests do not subscribe real email addresses, make purchases, or validate live third-party services. GitHub runs these tests before publishing.
+For local development, run `python3 -m http.server 8000` in this folder. Run `npm run check` before publishing. Serving the website needs only a static file server; its original logo animations use a locally bundled Lottie player. For browser regression tests, run `npm ci`, `npx playwright install chromium`, and `npm test`. Interaction tests use intercepted third-party requests and a tiny generated test video. A separate media check decodes the actual local images, font, and background film without external media requests. The tests do not subscribe real email addresses, make purchases, or validate live third-party services. GitHub runs these tests before publishing.
+
+The real background film uses H.264. CI selects the runner's installed Google Chrome to test that format; a bare Playwright Chromium build may not include its decoder. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select a compatible local browser. Tour and Merch have internal scroll areas with subtle scrollbars, and their padded close buttons remain accessible while scrolling. Signup uses the same scrollbar styling.
 
 ## Migration status
 
-GitHub Pages publishing is active. Browser checks compare the shared header, navigation, colors, and footer against the approved baseline, using the same original image and font bytes, and cover the requested popup refinements. All 16 owned media files are now hosted with the website. External players, ticketing, mailing lists, and checkout remain separate services; browser tests intercept those services rather than making real purchases or subscriptions.
+GitHub Pages publishing is active. Browser checks compare the shared header, navigation, colors, and footer against the approved baseline, using the same original image and font bytes, and cover the requested popup refinements. All owned media, including the original logo animation files, is now hosted with the website. External players, ticketing, mailing lists, and checkout remain separate services; browser tests intercept those services rather than making real purchases or subscriptions.
 
 ## Contents
-- Full-screen original background film and Advert wordmark
+- Full-screen original background film, original per-letter title pulse, and original swaying bird logo
 - Seven release slides with original artwork and immediate in-page streaming choices
 - Ten YouTube videos with thumbnail previews; players load only after a click
 - Three-second slideshow rotation, pause controls, keyboard navigation, and touch swiping
@@ -44,7 +46,9 @@ Twenty of the original 21 search options now have verified exact destinations. T
 Run `python3 scripts/audit-music-links.py` to compare direct destinations against the band's official link sources, check provider domains and search terms, and request each destination. The report is written to `/tmp/morefatter-music-link-audit.json`; it distinguishes live source matches from recorded provider evidence. Exit status 2 means the live audit is incomplete due to network restrictions or unconfirmed service responses; it must not be reported as a successful live-link check. The manually dispatched **Audit public release catalogs** workflow can inspect public provider metadata from GitHub's runner and save a report on a review branch. It does not change published music links automatically.
 
 ## Service dependencies
-The background film/poster, all seven release covers, original Advert font, social icons, and footer logos are local under `assets/media`, `assets/covers`, `assets/fonts`, and `assets/icons`. `assets/media/sources.json` records original sources, byte counts, and SHA-256 hashes; `npm run check` verifies the files and hashes. Images and font are unchanged originals. The background film retains its resolution, frame rate, duration, and color settings, with a 26.3% smaller H.264 encoding and fast-start playback. Total owned media is about 7.02 MB rather than 8.99 MB. The manual **Import original cover artwork** workflow can recover the three original Feature.fm cover files onto a review branch without altering the published site.
+The background film/poster, all seven release covers, original Advert font, social icons, and footer logos are local under `assets/media`, `assets/covers`, `assets/fonts`, and `assets/icons`. `assets/media/sources.json` records original sources, byte counts, and SHA-256 hashes; `npm run check` verifies the files and hashes. Images and font are unchanged originals. The background film retains its resolution, frame rate, duration, and color settings, with a 26.3% smaller H.264 encoding and fast-start playback. The core media is about 7.02 MB rather than 8.99 MB, with the original title/bird animations and their local player added separately. The manual **Import original cover artwork** workflow can recover the three original Feature.fm cover files onto a review branch without altering the published site.
+
+The original title and bird Lottie JSON files are preserved unchanged, with static SVG fallbacks rendered from the original vector artwork. The title repeats its original 2-second staggered letter pulse; the bird repeats its original 1⅓-second rotation and path flutter. They stop with reduced-motion preferences, the motion control, hidden tabs, active video players, or signup. The MIT-licensed Lottie 5.13.0 light player is local under `assets/vendor`; its npm tarball integrity and bundled-file checksum are recorded there. The approved baseline fixture includes these specifically requested original logo restorations.
 
 YouTube thumbnails/players, Songkick, Mailchimp, Shopify product images/checkout, and streaming platforms remain external services. Music choices are stored locally and do not load Feature.fm widgets. Webflow is no longer needed to serve the band's owned media. The Shopify Storefront token in shop.js is the public browser token used by the original site, not an admin credential.
 

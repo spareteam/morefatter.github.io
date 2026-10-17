@@ -1,5 +1,5 @@
 {
-  "description": "Band-owned media mirrored from the existing More Fatter website. External streaming, ticketing, video-player, mailing-list and shop services remain external. Images and font are byte-for-byte originals; only the background film is recompressed.",
+  "description": "Original band media and animation JSON mirrored locally. Static logo SVG fallbacks use the original animation paths. Background film is recompressed; original image/font and animation JSON bytes are preserved.",
   "entries": [
     {
       "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6%2F69a5a16e733a5c31d8774b7a_copy_55F9FDE6-6A6D-4316-AA8A-20BDDED4843C_mp4.mp4",
@@ -138,6 +138,47 @@
       "bytes": 47582,
       "original_sha256": "b1456073b2d00f3d81b1963b46a52a3021f2cf5f95ea06409db88295c5326ac9",
       "original_bytes": 47582
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f296d810dcb_bird%20(1).json",
+      "path": "assets/icons/morefatter-bird.json",
+      "sha256": "d087109c5aea56e0ae431dec5ba3e8a40e764a43710cedd1a61cf52b6fcc0afd",
+      "bytes": 14252,
+      "original_sha256": "d087109c5aea56e0ae431dec5ba3e8a40e764a43710cedd1a61cf52b6fcc0afd",
+      "original_bytes": 14252
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f296d810dcb_bird%20(1).json",
+      "path": "assets/icons/morefatter-bird.svg",
+      "sha256": "03894327aa11943d0430eadb5e3bb523a54c2b2993c02cec8e33dd7f03b7322d",
+      "bytes": 3453,
+      "original_sha256": "d087109c5aea56e0ae431dec5ba3e8a40e764a43710cedd1a61cf52b6fcc0afd",
+      "original_bytes": 14252,
+      "conversion": {
+        "description": "Static first-frame SVG fallback extracted from the original Lottie JSON B\u00e9zier vertices, tangents, fill, transforms and rotation; no redrawing. Animated rendering uses the unmodified JSON.",
+        "view_box": "0 0 1200 800",
+        "fill": "rgb(255,171,64)",
+        "frame": 0
+      }
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f6e60810ded_morefatter-logo.json",
+      "path": "assets/icons/morefatter-title.json",
+      "sha256": "b758863eea8c42d153fdfcdef50ba643a70f5563ab5d983b42c3ff673022469d",
+      "bytes": 34555,
+      "original_sha256": "b758863eea8c42d153fdfcdef50ba643a70f5563ab5d983b42c3ff673022469d",
+      "original_bytes": 34555
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f6e60810ded_morefatter-logo.json",
+      "path": "assets/icons/morefatter-title.svg",
+      "sha256": "27f9ea8a2cb372a9cad0bd958bf7912e53d0eddda2cd3a9cbe71dad4bc254e89",
+      "bytes": 52765,
+      "original_sha256": "b758863eea8c42d153fdfcdef50ba643a70f5563ab5d983b42c3ff673022469d",
+      "original_bytes": 34555,
+      "conversion": {
+        "description": "Static first frame rendered from the original Lottie vector animation using lottie-web 5.13.0 SVG renderer."
+      }
     }
   ]
 }

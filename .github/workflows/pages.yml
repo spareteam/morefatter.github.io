@@ -30,6 +30,11 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      - name: Use the runner's Chrome for original H.264 media
+        run: |
+          chrome_path="$(command -v google-chrome)"
+          test -x "$chrome_path"
+          printf 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=%s\n' "$chrome_path" >> "$GITHUB_ENV"
       - name: Prepare website files
         run: npm run build
       - name: Test website interactions and layouts
