@@ -20,13 +20,18 @@
 .rotation-toggle{border:0;background:none;color:inherit;font-size:11px;padding:3px 6px;margin-top:8px}
 .release-title{border:0;background:none;padding:0;color:inherit;font:inherit}
 .release-title:hover{text-decoration:underline}
-.stream-options{width:min(400px,100%);padding:16px;display:grid;gap:12px;border:1px solid #ffffff60;background:#000d;text-align:left}
+.stream-options{min-height:0;overflow:hidden;container-type:inline-size;padding:12px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:8px;border:1px solid #ffffff60;background:#000d;text-align:left}
 .stream-prompt{margin:0;font-size:14px;font-weight:400}
-.stream-services{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.stream-service{display:flex;flex-direction:column;justify-content:center;gap:3px;min-height:48px;border:1px solid #ffffff60;padding:8px 10px;font-size:14px}
+.stream-services{min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));align-content:start;gap:8px;padding:2px}
+.stream-service{display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:10px;min-height:52px;border:1px solid #ffffff60;padding:8px 10px;font-size:14px}
+.stream-icon{display:block;width:24px;height:24px;object-fit:contain}
+.stream-label{display:grid;gap:3px;min-width:0}
+.stream-name{overflow-wrap:anywhere}
 .stream-service:hover{border-color:#fff;background:#ffffff12}
+.stream-service:focus-visible{outline-offset:-3px}
 .stream-action{font-size:11px;opacity:.7}
-.stream-back{justify-self:start;border:0;background:none;padding:6px 0;font-size:12px;text-decoration:underline}
+.stream-back{justify-self:start;border:0;background:none;padding:4px 0;font-size:12px;text-decoration:underline}
+@container(max-width:220px){.stream-service{grid-template-columns:20px minmax(0,1fr);gap:6px;padding:6px;min-height:44px;font-size:12px}.stream-icon{width:20px;height:20px}.stream-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.stream-action{font-size:10px}}
 .carousel-viewport .stream-options,.carousel-viewport .stream-options *{cursor:auto;user-select:text;-webkit-user-select:text}
 .carousel-viewport .stream-options a,.carousel-viewport .stream-options a *,.carousel-viewport .stream-options button{cursor:pointer}
 #shop{left:0;right:0;width:min(640px,48vw);margin-inline:auto}

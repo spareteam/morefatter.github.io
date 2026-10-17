@@ -1,0 +1,37 @@
+[
+  {
+    "service": "spotify",
+    "color": "#1ED760",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.9.0/icons/spotify.svg"
+  },
+  {
+    "service": "applemusic",
+    "color": "#FA243C",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.9.0/icons/applemusic.svg"
+  },
+  {
+    "service": "tidal",
+    "color": "#FFFFFF",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.9.0/icons/tidal.svg"
+  },
+  {
+    "service": "deezer",
+    "color": "#A238FF",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.9.0/icons/deezer.svg"
+  },
+  {
+    "service": "amazonmusic",
+    "color": "#46C3D0",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/amazonmusic.svg"
+  },
+  {
+    "service": "youtube",
+    "color": "#FF0000",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.9.0/icons/youtube.svg"
+  },
+  {
+    "service": "youtubemusic",
+    "color": "#FF0000",
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@16.9.0/icons/youtubemusic.svg"
+  }
+]

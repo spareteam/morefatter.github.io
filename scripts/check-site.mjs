@@ -28,6 +28,9 @@ for (const release of data.music) {
     assert(new URL(service.url).protocol === 'https:', `${service.name} links must use HTTPS.`);
     assert(service.search === undefined || typeof service.search === 'boolean',
       'Search links must be marked explicitly.');
+    assert(/^[a-z]+$/.test(service.icon), `${service.name} needs a local service icon.`);
+    assert(statSync(resolve(root, 'assets/services', `${service.icon}.svg`)).isFile(),
+      `Missing ${service.name} icon.`);
   }
 }
 

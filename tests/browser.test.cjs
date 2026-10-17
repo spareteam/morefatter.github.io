@@ -20,8 +20,10 @@ before(async () => {
   server = http.createServer((request, response) => {
     const name = new URL(request.url, 'http://localhost').pathname.slice(1) || 'index.html';
     const baseline = ['baseline.html', 'baseline.css'].includes(name);
-    if (!baseline && !publicFiles.has(name)) return response.writeHead(404).end();
-    const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json' };
+    const localAsset = name.startsWith('assets/') && !name.split('/').includes('..') &&
+      fs.existsSync(path.join(servedRoot, name)) && fs.statSync(path.join(servedRoot, name)).isFile();
+    if (!baseline && !publicFiles.has(name) && !localAsset) return response.writeHead(404).end();
+    const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml' };
     response.setHeader('Content-Type', types[path.extname(name)]);
     response.end(fs.readFileSync(path.join(baseline ? path.join(__dirname, 'fixtures') : servedRoot, name)));
   });
@@ -301,6 +303,9 @@ test('Every music cover and title opens services in place, pauses rotation, and 
         assert.equal(link.target, '_blank');
         assert.equal(link.cursor, 'pointer');
       }
+      await page.waitForFunction(() => [...document.querySelectorAll('#music .stream-icon')]
+        .every(icon => icon.complete && icon.naturalWidth > 0));
+      assert.equal(await options.locator('.stream-icon').count(), release.services.length);
       await page.clock.fastForward(15000);
       assert.equal(await index(page, 'music'), selected, 'Service choices must stay open while reading');
       await options.getByRole('button', { name: 'Back to artwork' }).click();
@@ -396,6 +401,55 @@ test('Every streaming choice stays reachable on small phones and short landscape
         await page.getByRole('button', { name: 'Back to artwork' }).click();
         assert.equal(await activePreview(page, 'music').isVisible(), true);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      } finally { await context.close(); }
+    });
+  }
+});
+
+test('Every chooser matches its cover square exactly, keeps titles in place, and resizes with the viewport', async t => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 },
+    { width: 320, height: 568 }, { width: 844, height: 390 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context, errors } = await openPage({ viewport, reducedMotion: 'reduce', clock: true });
+      try {
+        await choose(page, 'music');
+        await page.locator('#music .rotation-toggle').click();
+        for (let selected = 0; selected < releases.length; selected++) {
+          await page.locator('#music .dot').nth(selected).click();
+          const preview = activePreview(page, 'music');
+          await preview.scrollIntoViewIfNeeded();
+          const before = await preview.boundingBox();
+          const title = page.locator('#music .slide[data-active="true"] .slide-title');
+          const titleBefore = await title.boundingBox();
+          await preview.click();
+          const chooser = page.locator('#music .stream-options');
+          const after = await chooser.boundingBox();
+          for (const dimension of ['width', 'height', 'x', 'y']) {
+            assert(Math.abs(before[dimension] - after[dimension]) <= 1,
+              `${releases[selected].title}: chooser ${dimension} should match the cover`);
+          }
+          assert(Math.abs(after.width - after.height) <= 1, 'The chooser must stay square');
+          assert(Math.abs((await title.boundingBox()).y - titleBefore.y) <= 1, 'Opening the chooser must not move the title');
+          const serviceArea = page.locator('#music .stream-services');
+          for (const service of await chooser.locator('a').all()) {
+            await service.scrollIntoViewIfNeeded();
+            const box = await service.boundingBox();
+            const scrollBox = await serviceArea.boundingBox();
+            assert(box.y >= scrollBox.y - 1 && box.y + box.height <= scrollBox.y + scrollBox.height + 1,
+              'Every service must scroll into the square');
+          }
+          await chooser.getByRole('button', { name: 'Back to artwork' }).click();
+        }
+        await page.locator('#music .dot').first().click();
+        await activePreview(page, 'music').click();
+        const resized = viewport.width > 700 ? { width: 390, height: 844 } : { width: 1440, height: 900 };
+        await page.setViewportSize(resized);
+        const chooser = await page.locator('#music .stream-options').boundingBox();
+        assert(Math.abs(chooser.width - chooser.height) <= 1, 'Resizing must preserve the square');
+        await page.getByRole('button', { name: 'Back to artwork' }).click();
+        const cover = await activePreview(page, 'music').boundingBox();
+        assert(Math.abs(chooser.width - cover.width) <= 1 && Math.abs(chooser.height - cover.height) <= 1);
+        assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
   }

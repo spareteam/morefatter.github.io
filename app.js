@@ -139,10 +139,10 @@ function openStreaming() {
   if (state.streamingOpen) return;
   state.streamingOpen = true;
   clearRotation(state);
-  const options = element('div', 'stream-options');
+  const options = element('div', 'cover stream-options');
   options.setAttribute('role', 'group');
   options.setAttribute('aria-label', `Streaming options for ${cell.item.title}`);
-  options.append(element('p', 'stream-prompt', 'Choose where to listen'));
+  options.append(element('p', 'stream-prompt', 'Listen on'));
   const services = element('div', 'stream-services');
   for (const service of cell.item.services) {
     const link = element('a', 'stream-service');
@@ -152,7 +152,13 @@ function openStreaming() {
     link.dataset.search = String(Boolean(service.search));
     const action = service.search ? 'Search' : service.action || 'Open';
     link.setAttribute('aria-label', `${action} ${cell.item.title} on ${service.name} (opens in a new tab)`);
-    link.append(element('span', '', service.name), element('span', 'stream-action', `${action} ↗`));
+    const icon = previewImage(`assets/services/${service.icon}.svg`, '', 'stream-icon');
+    icon.width = 24;
+    icon.height = 24;
+    icon.loading = 'eager';
+    const label = element('span', 'stream-label');
+    label.append(element('span', 'stream-name', service.name), element('span', 'stream-action', `${action} ↗`));
+    link.append(icon, label);
     services.append(link);
   }
   const back = button('stream-back', 'Back to artwork');
