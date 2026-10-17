@@ -82,6 +82,13 @@ def youtube():
                     section["browseId"], section["params"], limit=100)})
     except Exception as error:
         output.append({"artist_catalog_error": str(error)})
+    for query, kind in (("fat haus", "albums"), ("More Fatter Fat Haus EP", "albums"),
+                        ("More Fatter fat haus", "playlists")):
+        try:
+            output.append({"refined_query": query, "filter": kind,
+                           "matches": client.search(query, filter=kind, limit=12)})
+        except Exception as error:
+            output.append({"refined_query": query, "error": str(error)})
     return {"kind": "youtube_music", "queries": output}
 
 
@@ -94,10 +101,15 @@ const {chromium} = require('playwright');
   const results = [];
   for (const url of [
     'https://tidal.com/artist/7977491',
+    'https://tidal.com/artist/ARTIST_TOP_SINGLES/view-all?artistId=7977491',
+    'https://tidal.com/album/152166572',
+    'https://tidal.com/album/305619972',
     'https://music.amazon.com/search/More%20Fatter%20Weirdo',
     'https://music.amazon.com/search/More%20Fatter%20fat%20haus',
-    'https://www.amazon.com/s?k=195397863946&i=digital-music',
-    'https://www.amazon.com/s?k=197954893069&i=digital-music',
+    'https://music.amazon.com/albums/B08FZK5KJ1',
+    'https://music.amazon.com/albums/B0CC8Q9HNM',
+    'https://music.amazon.com/search/More%20Fatter%20Yeah%20You',
+    'https://music.amazon.com/search/More%20Fatter%20Livin%20in%20a%20Museum',
   ]) {
     const page = await context.newPage();
     const result = {source:url, publicMetadata:[]};
