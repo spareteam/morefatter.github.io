@@ -83,10 +83,20 @@ def youtube():
     except Exception as error:
         output.append({"artist_catalog_error": str(error)})
     for query, kind in (("fat haus", "albums"), ("More Fatter Fat Haus EP", "albums"),
-                        ("More Fatter fat haus", "playlists")):
+                        ("More Fatter fat haus", "playlists"),
+                        ("More Fatter Girl Scout Cookies", "songs"),
+                        ("More Fatter I Don't Want To", "songs")):
         try:
-            output.append({"refined_query": query, "filter": kind,
-                           "matches": client.search(query, filter=kind, limit=12)})
+            matches = client.search(query, filter=kind, limit=12)
+            record = {"refined_query": query, "filter": kind, "matches": matches}
+            if kind == "songs":
+                record["matched_albums"] = []
+                for match in matches:
+                    artists = [a.get("name", "").lower() for a in match.get("artists", [])]
+                    album_id = (match.get("album") or {}).get("id")
+                    if "more fatter" in artists and album_id:
+                        record["matched_albums"].append(client.get_album(album_id))
+            output.append(record)
         except Exception as error:
             output.append({"refined_query": query, "error": str(error)})
     return {"kind": "youtube_music", "queries": output}
