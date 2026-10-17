@@ -17,6 +17,10 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Install public YouTube Music catalog reader
         run: python3 -m pip install --disable-pip-version-check ytmusicapi==1.11.1
+      - name: Prepare normal browser for public catalogs
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
       - name: Read public release metadata
         run: python3 scripts/catalog-audit.py
       - name: Save public catalog report on a review branch

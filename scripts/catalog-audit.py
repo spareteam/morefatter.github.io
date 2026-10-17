@@ -6,6 +6,7 @@ from html import unescape
 from pathlib import Path
 import json
 import re
+import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -71,7 +72,79 @@ def youtube():
             output.append({"release": release, "matches": entries})
         except Exception as error:
             output.append({"release": release, "error": str(error)})
+    try:
+        artist = client.get_artist("UCeFARnwdOKoHg7Pwwdo4CWg")
+        output.append({"artist_catalog": artist})
+        for key in ("albums", "singles"):
+            section = artist.get(key, {})
+            if section.get("browseId") and section.get("params"):
+                output.append({"artist_section": key, "releases": client.get_artist_albums(
+                    section["browseId"], section["params"], limit=100)})
+    except Exception as error:
+        output.append({"artist_catalog_error": str(error)})
     return {"kind": "youtube_music", "queries": output}
+
+
+def browser_catalogs():
+    script = r'''
+const {chromium} = require('playwright');
+(async () => {
+  const browser = await chromium.launch({headless:true});
+  const context = await browser.newContext();
+  const results = [];
+  for (const url of [
+    'https://tidal.com/artist/7977491',
+    'https://music.amazon.com/search/More%20Fatter%20Weirdo',
+    'https://music.amazon.com/search/More%20Fatter%20fat%20haus',
+    'https://www.amazon.com/s?k=195397863946&i=digital-music',
+    'https://www.amazon.com/s?k=197954893069&i=digital-music',
+  ]) {
+    const page = await context.newPage();
+    const result = {source:url, publicMetadata:[]};
+    page.on('response', async response => {
+      if (!response.headers()['content-type']?.includes('json')) return;
+      try {
+        const data = await response.json();
+        const walk = value => {
+          if (!value || typeof value !== 'object') return;
+          if (Array.isArray(value)) {value.forEach(walk);return;}
+          const name = value.title || value.name || '';
+          if (typeof name === 'string' && /more fatter|weirdo|fat haus|museum/i.test(name)) {
+            const safe = {};
+            for (const key of ['id','title','name','type','url','shareUrl','link','upc','isrc','asin','releaseDate']) {
+              if (typeof value[key] === 'string' || typeof value[key] === 'number') safe[key] = value[key];
+            }
+            if (result.publicMetadata.length < 100) result.publicMetadata.push({source:response.url().split('?')[0],data:safe});
+          }
+          Object.values(value).forEach(walk);
+        };
+        walk(data);
+      } catch {}
+    });
+    try {
+      await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
+      await page.waitForTimeout(6000);
+      const body = await page.locator('body').innerText();
+      result.title = await page.title();
+      if (/captcha|robot check|verify (you are|that you are) human|access denied/i.test(body)) {
+        result.accessChallenge = true;
+        result.excerpt = body.slice(0,1200);
+      } else {
+        result.excerpt = body.slice(0,25000);
+        result.links = await page.locator('a[href]').evaluateAll(anchors => anchors.map(a => ({text:a.innerText,href:a.href})).filter(a => /(?:tidal\.com\/(?:browse\/)?(?:album|track|artist)|(?:music\.)?amazon\.com\/(?:albums|tracks|artists|dp|gp\/product))/i.test(a.href)).slice(0,250));
+      }
+    } catch (error) {result.error = String(error);}
+    results.push(result);
+    await page.close();
+  }
+  await browser.close();
+  process.stdout.write(JSON.stringify(results));
+})();
+'''
+    result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=220)
+    if result.returncode:
+        return {"kind": "browser_catalogs", "error": result.stderr[-2000:]}
+    return {"kind": "browser_catalogs", "pages": json.loads(result.stdout)}
 
 
 def page(url, kind):
@@ -79,7 +152,7 @@ def page(url, kind):
 
 
 def main():
-    tasks = [(deezer, ()), (youtube, ())]
+    tasks = [(deezer, ()), (youtube, ()), (browser_catalogs, ())]
     for url in (
         "https://tidal.com/browse/artist/7977491",
         "https://tidal.com/artist/7977491",
