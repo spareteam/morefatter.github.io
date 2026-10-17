@@ -6,6 +6,7 @@ const http = require('node:http');
 const { chromium } = require('playwright');
 
 const root = path.resolve(__dirname, '..');
+const releases = JSON.parse(fs.readFileSync(path.join(root, 'content.json'), 'utf8')).music;
 const servedRoot = process.env.TEST_BUILT_SITE ? path.join(root, '_site') : root;
 const fixture = path.join(__dirname, 'fixtures/background.webm');
 const publicFiles = new Set(process.env.TEST_BUILT_SITE ? fs.readdirSync(servedRoot) :
@@ -124,7 +125,7 @@ test('Small phones, landscape and desktop keep carousel controls inside a usable
           await page.locator(`#${kind} .next`).click();
           assert.equal(await index(page, kind), 1);
           await page.locator(`#${kind} .dot`).last().click();
-          assert.equal(await index(page, kind), kind === 'music' ? 7 : 9);
+          assert.equal(await index(page, kind), kind === 'music' ? releases.length - 1 : 9);
           assert.equal(await page.locator(`#${kind} .carousel-controls`).count(), 0);
           assert.equal(await page.locator(`#${kind} .preview-title`).count(), 0);
         }
@@ -242,11 +243,11 @@ test('Short landscape screens scroll the carousel vertically without changing sl
   } finally { await context.close(); }
 });
 
-test('Players load on demand and suspend rotation and background video until slideshow resume', async () => {
+test('Video players load on demand and suspend rotation and background video until slideshow resume', async () => {
   const { page, context, requests, errors } = await openPage({ clock: true });
   try {
     await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
-    for (const kind of ['music', 'video']) {
+    for (const kind of ['video']) {
       await choose(page, kind);
       assert.equal(await page.locator('iframe').count(), 0);
       const count = requests.filter(request => request.type === 'document').length;
@@ -265,6 +266,139 @@ test('Players load on demand and suspend rotation and background video until sli
     }
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
+});
+
+test('Every music cover and title opens services in place, pauses rotation, and removes the outdated playlist', async () => {
+  const { page, context, requests, errors } = await openPage({ clock: true });
+  try {
+    await choose(page, 'music');
+    assert.equal(await page.locator('#music .dot').count(), 7);
+    assert.equal(await page.getByRole('button', { name: 'More Fatter Complete', exact: true }).count(), 0);
+    const url = page.url();
+    const externalDocuments = () => requests.filter(request => request.type === 'document').length;
+    const initialDocuments = externalDocuments();
+    for (let selected = 0; selected < releases.length; selected++) {
+      const release = releases[selected];
+      await page.locator('#music .dot').nth(selected).click();
+      await activePreview(page, 'music').click();
+      const options = page.getByRole('group', { name: `Streaming options for ${release.title}`, exact: true });
+      assert.equal(await options.isVisible(), true);
+      assert.equal(await page.locator('iframe').count(), 0);
+      assert.equal(externalDocuments(), initialDocuments, 'Choosing a release must not load another page or widget');
+      assert.equal(context.pages().length, 1);
+      assert.equal(page.url(), url);
+      const links = await options.locator('a').evaluateAll(nodes => nodes.map(node => ({
+        url: node.href, search: node.dataset.search === 'true', target: node.target,
+        text: node.textContent, cursor: getComputedStyle(node).cursor,
+      })));
+      assert.equal(links.length, release.services.length);
+      for (const [i, link] of links.entries()) {
+        const expected = release.services[i];
+        assert.equal(link.url, expected.url);
+        assert.equal(link.search, Boolean(expected.search));
+        assert(link.text.includes(expected.name));
+        if (expected.search) assert(link.text.includes('Search'));
+        assert.equal(link.target, '_blank');
+        assert.equal(link.cursor, 'pointer');
+      }
+      await page.clock.fastForward(15000);
+      assert.equal(await index(page, 'music'), selected, 'Service choices must stay open while reading');
+      await options.getByRole('button', { name: 'Back to artwork' }).click();
+      assert.equal(await activePreview(page, 'music').isVisible(), true);
+      await page.locator('#music .slide[data-active="true"] .release-title').click();
+      assert.equal(await options.isVisible(), true, 'Titles must open the same service chooser');
+      await page.locator('#music .rotation-toggle').click();
+      assert.equal(await options.count(), 0);
+    }
+    await page.clock.fastForward(3100);
+    assert.equal(await index(page, 'music'), 0, 'Resume must restore looping auto-advance');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Streaming links open the chosen service while keyboard dismissal and navigation return to the artwork', async () => {
+  const { page, context } = await openPage({ clock: true });
+  try {
+    await choose(page, 'music');
+    await page.locator('#music .slide[data-active="true"] .release-title').focus();
+    await page.keyboard.press('Enter');
+    const firstLink = page.locator('#music .stream-service').first();
+    assert.equal(await firstLink.evaluate(node => node === document.activeElement), true);
+    const popupPromise = page.waitForEvent('popup');
+    await firstLink.click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState('domcontentloaded');
+    assert.equal(popup.url(), releases[0].services[0].url);
+    await popup.close();
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#music').isVisible(), true);
+    assert.equal(await activePreview(page, 'music').evaluate(node => node === document.activeElement), true);
+    await activePreview(page, 'music').click();
+    await choose(page, 'video');
+    await choose(page, 'music');
+    assert.equal(await page.locator('#music .stream-options').count(), 0);
+    assert.equal(await activePreview(page, 'music').isVisible(), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#music').isVisible(), false);
+  } finally { await context.close(); }
+});
+
+test('Carousels are vertically centered with lighter titles, and the shop is narrow and centered', async t => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context } = await openPage({ viewport, reducedMotion: 'reduce', clock: true });
+      try {
+        for (const kind of ['music', 'video']) {
+          await choose(page, kind);
+          const layout = await page.evaluate(kind => {
+            const area = document.querySelector(`#${kind} .carousel-scroll-area`).getBoundingClientRect();
+            const preview = document.querySelector(`#${kind} .carousel-viewport`).getBoundingClientRect();
+            const toggle = document.querySelector(`#${kind} .rotation-toggle`).getBoundingClientRect();
+            const groupHeight = toggle.bottom - preview.top;
+            const groupCenter = (toggle.bottom + preview.top) / 2;
+            const areaCenter = (area.bottom + area.top) / 2;
+            const title = document.querySelector(`#${kind} .slide-title`);
+            return { groupHeight, areaHeight: area.height, difference: Math.abs(groupCenter - areaCenter),
+              weight: getComputedStyle(title).fontWeight };
+          }, kind);
+          if (layout.groupHeight <= layout.areaHeight) assert(layout.difference <= 8, `${kind} should be vertically centered`);
+          assert.equal(layout.weight, '500');
+        }
+        await choose(page, 'shop');
+        const bounds = await page.locator('#shop').boundingBox();
+        assert(Math.abs(bounds.x + bounds.width / 2 - viewport.width / 2) <= 1);
+        if (viewport.width > 700) assert(bounds.width >= viewport.width / 3 && bounds.width <= viewport.width / 2);
+        else assert(bounds.width <= viewport.width - 40);
+        const close = page.locator('#shop > .close');
+        const closeBounds = await close.boundingBox();
+        assert(closeBounds.y >= bounds.y && closeBounds.x >= bounds.x, 'The narrower shop must not clip its close button');
+        await close.click();
+        assert.equal(await page.locator('#shop').isVisible(), false);
+      } finally { await context.close(); }
+    });
+  }
+});
+
+test('Every streaming choice stays reachable on small phones and short landscape screens', async t => {
+  for (const viewport of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context } = await openPage({ viewport, reducedMotion: 'reduce', clock: true });
+      try {
+        await choose(page, 'music');
+        await activePreview(page, 'music').click();
+        for (const service of await page.locator('#music .stream-service').all()) {
+          await service.scrollIntoViewIfNeeded();
+          const bounds = await service.boundingBox();
+          const area = await page.locator('#music .carousel-scroll-area').boundingBox();
+          assert(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width);
+          assert(bounds.y >= area.y - 1 && bounds.y + bounds.height <= area.y + area.height + 1);
+        }
+        await page.getByRole('button', { name: 'Back to artwork' }).click();
+        assert.equal(await activePreview(page, 'music').isVisible(), true);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      } finally { await context.close(); }
+    });
+  }
 });
 
 test('Reduced motion and data saving keep the background unloaded without silently disabling auto-advance', async () => {

@@ -38,7 +38,7 @@ function scheduleRotation(kind) {
   const state = carousels[kind];
   clearRotation(state);
   const focusedSlide = keyboardMode && state.cells[state.physical]?.slide.contains(document.activeElement);
-  if (current !== kind || state.paused || state.playerOpen || state.gesture ||
+  if (current !== kind || state.paused || state.playerOpen || state.streamingOpen || state.gesture ||
       document.hidden || focusedSlide) return;
   state.timer = setTimeout(() => goTo(kind, state.index + 1, { automatic: true, direction: 1 }), ROTATION_DELAY);
 }
@@ -47,7 +47,7 @@ function updateControls(kind, announce = false) {
   const state = carousels[kind];
   const list = listFor(kind);
   state.root.dataset.index = String(state.index);
-  state.toggle.textContent = state.playerOpen ? 'Resume slideshow' : state.paused ? 'Play slideshow' : 'Pause slideshow';
+  state.toggle.textContent = state.playerOpen || state.streamingOpen ? 'Resume slideshow' : state.paused ? 'Play slideshow' : 'Pause slideshow';
   state.toggle.setAttribute('aria-label', state.toggle.textContent);
   [...state.dots.children].forEach((dot, index) => dot.setAttribute('aria-current', String(index === state.index)));
   state.cells.forEach((cell, index) => {
@@ -75,7 +75,7 @@ function videoId(item) {
 
 function itemLink(kind, item) {
   return kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId(item))}`
-    : item.embed ? item.embed.replace(/\/widget\/?$/, '') : item.url;
+    : item.url;
 }
 
 function previewImage(url, title, className) {
@@ -108,28 +108,61 @@ function renderMedia(kind, cell) {
     preview.append(image, icon);
     preview.addEventListener('click', () => openPlayer(kind));
     cell.media.replaceChildren(preview);
-  } else if (item.embed) {
-    const preview = button('cover music-preview', `Listen to ${item.title}`);
-    preview.append(previewImage(item.preview, `${item.title} cover artwork`, 'cover-art'));
-    preview.addEventListener('click', () => openPlayer(kind));
-    cell.media.replaceChildren(preview);
   } else {
-    const link = element('a', 'artwork-link');
-    link.href = item.url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    const image = previewImage(item.image, `${item.title} cover artwork`, 'cover');
-    image.width = 400;
-    image.height = 400;
-    link.append(image);
-    cell.media.replaceChildren(link);
+    const preview = button('cover music-preview', `Listen to ${item.title}`);
+    preview.append(previewImage(item.image, `${item.title} cover artwork`, 'cover-art'));
+    preview.addEventListener('click', openStreaming);
+    cell.media.replaceChildren(preview);
   }
 }
 
 function stopPlayers(kind) {
   const state = carousels[kind];
-  for (const cell of state.cells) if (cell.media.querySelector('iframe')) renderMedia(kind, cell);
+  for (const cell of state.cells) if (cell.media.querySelector('iframe, .stream-options')) renderMedia(kind, cell);
   state.playerOpen = false;
+  state.streamingOpen = false;
+}
+
+function closeStreaming({ restoreFocus = false } = {}) {
+  const state = carousels.music;
+  stopPlayers('music');
+  updateControls('music', true);
+  if (restoreFocus) state.cells[state.physical].media.querySelector('button').focus({ preventScroll: true });
+  scheduleRotation('music');
+}
+
+function openStreaming() {
+  if (current !== 'music') return;
+  const state = carousels.music;
+  finishTransition('music');
+  const cell = state.cells[state.physical];
+  if (state.streamingOpen) return;
+  state.streamingOpen = true;
+  clearRotation(state);
+  const options = element('div', 'stream-options');
+  options.setAttribute('role', 'group');
+  options.setAttribute('aria-label', `Streaming options for ${cell.item.title}`);
+  options.append(element('p', 'stream-prompt', 'Choose where to listen'));
+  const services = element('div', 'stream-services');
+  for (const service of cell.item.services) {
+    const link = element('a', 'stream-service');
+    link.href = service.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.dataset.search = String(Boolean(service.search));
+    const action = service.search ? 'Search' : service.action || 'Open';
+    link.setAttribute('aria-label', `${action} ${cell.item.title} on ${service.name} (opens in a new tab)`);
+    link.append(element('span', '', service.name), element('span', 'stream-action', `${action} ↗`));
+    services.append(link);
+  }
+  const back = button('stream-back', 'Back to artwork');
+  back.textContent = 'Back to artwork';
+  back.addEventListener('click', () => closeStreaming({ restoreFocus: true }));
+  options.append(services, back);
+  cell.media.replaceChildren(options);
+  updateControls('music');
+  state.status.textContent = `Choose a music service for ${cell.item.title}.`;
+  if (keyboardMode) services.querySelector('a').focus({ preventScroll: true });
 }
 
 function openPlayer(kind) {
@@ -140,12 +173,10 @@ function openPlayer(kind) {
   const item = cell.item;
   state.playerOpen = true;
   clearRotation(state);
-  const frame = element('iframe', kind === 'video' ? 'video-frame' : 'cover');
-  const source = new URL(kind === 'video' ? item.url : item.embed);
-  if (kind === 'video') {
-    source.searchParams.set('autoplay', '1');
-    source.searchParams.set('playsinline', '1');
-  }
+  const frame = element('iframe', 'video-frame');
+  const source = new URL(item.url);
+  source.searchParams.set('autoplay', '1');
+  source.searchParams.set('playsinline', '1');
   frame.src = source.href;
   frame.title = item.title;
   frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
@@ -210,7 +241,7 @@ function installSwipe(kind) {
   const viewport = state.viewport;
   viewport.addEventListener('dragstart', event => event.preventDefault());
   viewport.addEventListener('pointerdown', event => {
-    if (!event.isPrimary || event.button !== 0) return;
+    if (!event.isPrimary || event.button !== 0 || event.target.closest('.stream-options')) return;
     finishTransition(kind);
     state.gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
       started: performance.now(), dx: 0, dy: 0, dragging: false };
@@ -286,7 +317,7 @@ function createCarousel(kind) {
   status.setAttribute('aria-live', 'polite');
   root.replaceChildren(viewport, dots, toggle, status);
   const state = carousels[kind] = { root, area, viewport, track, dots, toggle, status, cells: [],
-    index: 0, physical: 1, paused: false, playerOpen: false, animation: null,
+    index: 0, physical: 1, paused: false, playerOpen: false, streamingOpen: false, animation: null,
     timer: null, gesture: null, suppressClickUntil: 0 };
   const list = listFor(kind);
   const sequence = [list[list.length - 1], ...list, list[0]];
@@ -298,10 +329,14 @@ function createCarousel(kind) {
     slide.setAttribute('aria-label', `${index + 1} of ${list.length}: ${item.title}`);
     const media = element('div', 'media');
     const title = element('h2', 'slide-title');
-    const link = element('a', '', item.title);
-    link.href = itemLink(kind, item);
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
+    const link = kind === 'music' ? button('release-title', `Streaming options for ${item.title}`) : element('a');
+    link.textContent = item.title;
+    if (kind === 'music') link.addEventListener('click', openStreaming);
+    else {
+      link.href = itemLink(kind, item);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    }
     title.append(link);
     slide.append(media, title);
     const cell = { slide, media, title, item };
@@ -315,7 +350,7 @@ function createCarousel(kind) {
     dots.append(dot);
   });
   toggle.addEventListener('click', () => {
-    if (state.playerOpen) { stopPlayers(kind); state.paused = false; updateBackground(); }
+    if (state.playerOpen || state.streamingOpen) { stopPlayers(kind); state.paused = false; updateBackground(); }
     else state.paused = !state.paused;
     updateControls(kind);
     scheduleRotation(kind);
@@ -381,6 +416,12 @@ document.addEventListener('pointerdown', () => { keyboardMode = false; }, true);
 document.addEventListener('keydown', event => {
   keyboardMode = true;
   if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
+  if (event.key === 'Escape' && current === 'music' && carousels.music.streamingOpen) {
+    event.preventDefault();
+    closeStreaming({ restoreFocus: true });
+    return;
+  }
+  if (event.target.closest('.stream-options')) return;
   if (event.key === 'Escape' && current) showPanel(null, { restoreFocus: true });
   if (carousels[current] && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
     event.preventDefault();

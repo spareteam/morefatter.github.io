@@ -16,6 +16,20 @@ for (const key of ['music', 'videos']) {
     assert(typeof item.title === 'string' && item.title.trim(), `${key} entry needs a title.`);
   }
 }
+for (const release of data.music) {
+  assert(new URL(release.image).protocol === 'https:', `${release.title} needs HTTPS cover artwork.`);
+  assert(Array.isArray(release.services) && release.services.length > 0,
+    `${release.title} needs streaming options.`);
+  const names = new Set();
+  for (const service of release.services) {
+    assert(typeof service.name === 'string' && service.name.trim(), 'Streaming services need names.');
+    assert(!names.has(service.name), `${release.title} has duplicate ${service.name} options.`);
+    names.add(service.name);
+    assert(new URL(service.url).protocol === 'https:', `${service.name} links must use HTTPS.`);
+    assert(service.search === undefined || typeof service.search === 'boolean',
+      'Search links must be marked explicitly.');
+  }
+}
 
 const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)].map(match => match[1]);
 references.push('shop.js', '.nojekyll');
