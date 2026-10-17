@@ -77,6 +77,21 @@ def source_destinations(body):
             parsed.urls.add(canonical(payload['destUrl']))
         except (ValueError, KeyError):
             continue
+    # Official public catalog APIs return the provider's canonical release URL.
+    try:
+        document = json.loads(body)
+    except ValueError:
+        document = None
+    def visit(value):
+        if isinstance(value, dict):
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+        elif isinstance(value, str) and value.startswith('https://'):
+            parsed.urls.add(canonical(value))
+    visit(document)
     return parsed.urls
 
 
@@ -91,9 +106,12 @@ def search_matches(release, service):
 
 def main():
     music = json.loads((ROOT / 'content.json').read_text())['music']
+    provenance = json.loads((ROOT / 'assets/music/sources.json').read_text())['entries']
+    recorded = {canonical(entry['url']): entry for entry in provenance}
     sources = {'https://www.morefatter.band/'}
     sources.update(release['url'] for release in music
                    if urllib.parse.urlsplit(release['url']).hostname in ('ffm.to', 'distrokid.com'))
+    sources.update(entry['source'] for entry in provenance if entry['source'].startswith('https://'))
     destinations = {service['url'] for release in music for service in release['services']}
     urls = sorted(sources | destinations)
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
@@ -112,6 +130,7 @@ def main():
                 'release': release['title'], 'service': service['name'], 'url': url,
                 'kind': 'search' if search else 'release', 'correct_provider': provider_ok,
                 'source_match': canonical(url) in official if not search else None,
+                'recorded_source': recorded.get(canonical(url)),
                 'search_matches_release': search_matches(release, service) if search else None,
                 'live': fetched[url][0],
             })

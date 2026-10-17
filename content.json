@@ -3,7 +3,7 @@
     {
       "title": "Good Morning El Sereno",
       "url": "https://ffm.to/morefatter",
-      "image": "https://imagestore.ffm.to/link/1aa9337bf9415cc50cb9db43c469cf9e.jpeg",
+      "image": "assets/covers/good-morning-el-sereno.jpeg",
       "services": [
         {
           "name": "Spotify",
@@ -46,7 +46,7 @@
     {
       "title": "Fat Chance",
       "url": "https://ffm.to/fatchance",
-      "image": "https://imagestore.ffm.to/link/84569b08255a459455914684fb6e69aa.jpeg",
+      "image": "assets/covers/fat-chance.jpeg",
       "services": [
         {
           "name": "Spotify",
@@ -83,7 +83,7 @@
     {
       "title": "Fat Chance - Acoustic",
       "url": "https://ffm.to/fatchanceacoustic",
-      "image": "https://imagestore.ffm.to/link/a86166357276b269649b918b6f86d30f.jpeg",
+      "image": "assets/covers/fat-chance-acoustic.jpeg",
       "services": [
         {
           "name": "Spotify",
@@ -126,7 +126,7 @@
     {
       "title": "Weirdo",
       "url": "https://open.spotify.com/track/2bXZrZbhRU6IQha9s5I2X2?si=ea1c5c630897452c",
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/63618e0dc4c393f4690bce49_Weirdo%20Cover%20Art.png",
+      "image": "assets/covers/weirdo.png",
       "services": [
         {
           "name": "Spotify",
@@ -135,40 +135,35 @@
         },
         {
           "name": "Apple Music",
-          "url": "https://music.apple.com/us/search?term=More%20Fatter%20Weirdo",
-          "search": true,
+          "url": "https://music.apple.com/us/album/weirdo-single/1527524884",
           "icon": "applemusic"
         },
         {
           "name": "TIDAL",
-          "url": "https://listen.tidal.com/search?q=More%20Fatter%20Weirdo",
-          "search": true,
+          "url": "https://tidal.com/album/152166572",
           "icon": "tidal"
         },
         {
           "name": "YouTube Music",
-          "url": "https://music.youtube.com/search?q=More%20Fatter%20Weirdo",
-          "search": true,
+          "url": "https://music.youtube.com/playlist?list=OLAK5uy_m2-XakHYvfCXnuLbpnJRHL3AHV-eKbSCQ",
           "icon": "youtubemusic"
         },
         {
           "name": "Amazon Music",
-          "url": "https://music.amazon.com/search/More%20Fatter%20Weirdo",
-          "search": true,
+          "url": "https://music.amazon.com/albums/B08FZK5KJ1",
           "icon": "amazonmusic"
         },
         {
           "name": "Deezer",
-          "url": "https://www.deezer.com/search/More%20Fatter%20Weirdo",
-          "search": true,
+          "url": "https://www.deezer.com/album/166909642",
           "icon": "deezer"
         }
       ]
     },
     {
       "title": "Yeah You",
-      "url": "https://open.spotify.com/track/2498THhwuGaXJ1hfhQfyzb?si=38cd2cd2c23947d1",
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/63618e0ddc70c35124cc9f2e_yeah%20you.jpeg",
+      "url": "https://distrokid.com/hyperfollow/morefatter/gc0c",
+      "image": "assets/covers/yeah-you.jpeg",
       "services": [
         {
           "name": "Spotify",
@@ -177,32 +172,27 @@
         },
         {
           "name": "Apple Music",
-          "url": "https://music.apple.com/us/search?term=More%20Fatter%20Yeah%20You",
-          "search": true,
+          "url": "https://music.apple.com/us/album/yeah-you-single/1448666063",
           "icon": "applemusic"
         },
         {
           "name": "TIDAL",
-          "url": "https://listen.tidal.com/search?q=More%20Fatter%20Yeah%20You",
-          "search": true,
+          "url": "https://www.tidal.com/album/101975639",
           "icon": "tidal"
         },
         {
           "name": "YouTube Music",
-          "url": "https://music.youtube.com/search?q=More%20Fatter%20Yeah%20You",
-          "search": true,
+          "url": "https://music.youtube.com/playlist?list=OLAK5uy_m3dSeAbsYU3BmL7lEM_QaCZSkfvmLeBNI",
           "icon": "youtubemusic"
         },
         {
           "name": "Amazon Music",
-          "url": "https://music.amazon.com/search/More%20Fatter%20Yeah%20You",
-          "search": true,
+          "url": "https://music.amazon.com/albums/B07M77QKF6",
           "icon": "amazonmusic"
         },
         {
           "name": "Deezer",
-          "url": "https://www.deezer.com/search/More%20Fatter%20Yeah%20You",
-          "search": true,
+          "url": "https://www.deezer.com/album/83581382",
           "icon": "deezer"
         }
       ]
@@ -210,24 +200,21 @@
     {
       "title": "Fat Haus EP",
       "url": "https://distrokid.com/hyperfollow/morefatter/fat-haus",
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/650d27dbb022e42bdb942477_3000x3000-621229--8965138C-0BAC-4FED-B4325B7A7FCA44F2--0--587299--NewProject3.jpeg",
+      "image": "assets/covers/fat-haus.jpeg",
       "services": [
         {
           "name": "Spotify",
-          "url": "https://open.spotify.com/search/More%20Fatter%20Fat%20Haus",
-          "search": true,
+          "url": "https://open.spotify.com/album/4vLEPADHDiZd7UOYzK3aXi",
           "icon": "spotify"
         },
         {
           "name": "Apple Music",
-          "url": "https://music.apple.com/us/search?term=More%20Fatter%20Fat%20Haus",
-          "search": true,
+          "url": "https://music.apple.com/us/album/fat-haus-ep/1698273767",
           "icon": "applemusic"
         },
         {
           "name": "TIDAL",
-          "url": "https://listen.tidal.com/search?q=More%20Fatter%20Fat%20Haus",
-          "search": true,
+          "url": "https://tidal.com/album/305619972",
           "icon": "tidal"
         },
         {
@@ -238,14 +225,12 @@
         },
         {
           "name": "Amazon Music",
-          "url": "https://music.amazon.com/search/More%20Fatter%20Fat%20Haus",
-          "search": true,
+          "url": "https://music.amazon.com/albums/B0CC8Q9HNM",
           "icon": "amazonmusic"
         },
         {
           "name": "Deezer",
-          "url": "https://www.deezer.com/search/More%20Fatter%20Fat%20Haus",
-          "search": true,
+          "url": "https://www.deezer.com/album/466155485",
           "icon": "deezer"
         }
       ]
@@ -253,7 +238,7 @@
     {
       "title": "Livin’ in a Museum",
       "url": "https://distrokid.com/hyperfollow/morefatter/livin-in-a-museum",
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/63618e0dc42f804fe2a28801_livin%20in%20a%20museum.jpeg",
+      "image": "assets/covers/livin-in-a-museum.jpeg",
       "services": [
         {
           "name": "Spotify",
@@ -262,32 +247,27 @@
         },
         {
           "name": "Apple Music",
-          "url": "https://music.apple.com/us/search?term=More%20Fatter%20Livin%27%20in%20a%20Museum",
-          "search": true,
+          "url": "https://music.apple.com/us/album/livin-in-a-museum-single/1485321006",
           "icon": "applemusic"
         },
         {
           "name": "TIDAL",
-          "url": "https://listen.tidal.com/search?q=More%20Fatter%20Livin%27%20in%20a%20Museum",
-          "search": true,
+          "url": "https://tidal.com/album/121246450",
           "icon": "tidal"
         },
         {
           "name": "YouTube Music",
-          "url": "https://music.youtube.com/search?q=More%20Fatter%20Livin%27%20in%20a%20Museum",
-          "search": true,
+          "url": "https://music.youtube.com/playlist?list=OLAK5uy_nRyug0RbmCVDqk0cpynpnRXQ2sWNMTlAk",
           "icon": "youtubemusic"
         },
         {
           "name": "Amazon Music",
-          "url": "https://music.amazon.com/search/More%20Fatter%20Livin%27%20in%20a%20Museum",
-          "search": true,
+          "url": "https://music.amazon.com/albums/B07ZPJ3XR6",
           "icon": "amazonmusic"
         },
         {
           "name": "Deezer",
-          "url": "https://www.deezer.com/search/More%20Fatter%20Livin%27%20in%20a%20Museum",
-          "search": true,
+          "url": "https://www.deezer.com/album/116791062",
           "icon": "deezer"
         }
       ]
@@ -335,23 +315,23 @@
       "url": "https://www.youtube.com/embed/hZqqdBjq-Ns?rel=0&controls=1&autoplay=0&mute=0&start=0"
     }
   ],
-  "video": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6%2F69a5a16e733a5c31d8774b7a_copy_55F9FDE6-6A6D-4316-AA8A-20BDDED4843C_mp4.mp4",
-  "poster": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6%2F69a5a16e733a5c31d8774b7a_copy_55F9FDE6-6A6D-4316-AA8A-20BDDED4843C_poster.0000000.jpg",
+  "video": "assets/media/background.mp4",
+  "poster": "assets/media/background-poster.jpg",
   "icons": [
     {
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/636194169dd60d833876f89f_ig-white.png",
+      "image": "assets/icons/ig-white.png",
       "name": "ig-white.png"
     },
     {
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f243f810dd7_spotify-white.png",
+      "image": "assets/icons/spotify-white.png",
       "name": "spotify-white.png"
     },
     {
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7fac9f810dd9_applemusic-white.png",
+      "image": "assets/icons/applemusic-white.png",
       "name": "applemusic-white.png"
     },
     {
-      "image": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f1a7f810de7_yt-white.png",
+      "image": "assets/icons/yt-white.png",
       "name": "yt-white.png"
     }
   ]

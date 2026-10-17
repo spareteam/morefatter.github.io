@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
@@ -10,6 +11,27 @@ assert(embedded, 'The page must contain its site-data JSON.');
 const data = JSON.parse(embedded[1]);
 assert.deepEqual(data, JSON.parse(readFileSync(resolve(root, 'content.json'), 'utf8')),
   'Update both index.html and content.json when editing site content.');
+
+function localAsset(reference, label) {
+  assert(typeof reference === 'string' && reference.startsWith('assets/'), `${label} must be hosted with the site.`);
+  const file = resolve(root, decodeURIComponent(reference));
+  const pathWithinRoot = relative(root, file);
+  assert(!pathWithinRoot.startsWith('..') && !isAbsolute(pathWithinRoot), `${label} leaves the site directory.`);
+  assert(statSync(file).isFile(), `${label} is missing: ${reference}`);
+  return file;
+}
+
+localAsset(data.video, 'Background video');
+localAsset(data.poster, 'Background poster');
+for (const icon of data.icons) localAsset(icon.image, icon.name);
+const css = readFileSync(resolve(root, 'style.css'), 'utf8');
+for (const match of css.matchAll(/url\(['"]?([^)'"\s]+)['"]?\)/g)) localAsset(match[1], 'Stylesheet asset');
+const media = JSON.parse(readFileSync(resolve(root, 'assets/media/sources.json'), 'utf8'));
+for (const entry of media.entries) {
+  const file = localAsset(entry.path, 'Imported media');
+  assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'), entry.sha256,
+    `Imported asset checksum differs: ${entry.path}`);
+}
 for (const key of ['music', 'videos']) {
   assert(Array.isArray(data[key]) && data[key].length > 0, `${key} must contain content.`);
   for (const item of data[key]) {
@@ -17,7 +39,7 @@ for (const key of ['music', 'videos']) {
   }
 }
 for (const release of data.music) {
-  assert(new URL(release.image).protocol === 'https:', `${release.title} needs HTTPS cover artwork.`);
+  localAsset(release.image, `${release.title} cover artwork`);
   assert(Array.isArray(release.services) && release.services.length > 0,
     `${release.title} needs streaming options.`);
   const names = new Set();

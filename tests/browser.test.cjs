@@ -9,8 +9,12 @@ const root = path.resolve(__dirname, '..');
 const releases = JSON.parse(fs.readFileSync(path.join(root, 'content.json'), 'utf8')).music;
 const servedRoot = process.env.TEST_BUILT_SITE ? path.join(root, '_site') : root;
 const fixture = path.join(__dirname, 'fixtures/background.webm');
+const mediaSources = JSON.parse(fs.readFileSync(path.join(root, 'assets/media/sources.json'), 'utf8')).entries;
+const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.ttf': 'font/ttf', '.woff2': 'font/woff2' };
 const publicFiles = new Set(process.env.TEST_BUILT_SITE ? fs.readdirSync(servedRoot) :
-  ['index.html', 'style.css', 'app.js', 'shop.js', 'content.json']);
+  ['index.html', 'style.css', 'app.js', 'shop.js', 'content.json', 'music-links.html']);
 const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=', 'base64');
 let server;
 let browser;
@@ -23,8 +27,7 @@ before(async () => {
     const localAsset = name.startsWith('assets/') && !name.split('/').includes('..') &&
       fs.existsSync(path.join(servedRoot, name)) && fs.statSync(path.join(servedRoot, name)).isFile();
     if (!baseline && !publicFiles.has(name) && !localAsset) return response.writeHead(404).end();
-    const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml' };
-    response.setHeader('Content-Type', types[path.extname(name)]);
+    response.setHeader('Content-Type', types[path.extname(name)] || 'application/octet-stream');
     response.end(fs.readFileSync(path.join(baseline ? path.join(__dirname, 'fixtures') : servedRoot, name)));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -40,7 +43,7 @@ after(async () => {
 });
 
 async function openPage(options = {}) {
-  const { saveData, clock = false, signupState, storageUnavailable, query = '', ...contextOptions } = options;
+  const { saveData, clock = false, signupState, storageUnavailable, realMedia = false, query = '', ...contextOptions } = options;
   const context = await browser.newContext(contextOptions);
   if (signupState) await context.addInitScript(state => {
     localStorage.setItem('morefatter:signup:v1', JSON.stringify(state));
@@ -58,9 +61,13 @@ async function openPage(options = {}) {
   await context.route('**/*', route => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.origin === origin) return route.continue();
     requests.push({ url: url.href, type: request.resourceType(), method: request.method(), body: request.postData() });
-    if (url.pathname.endsWith('.mp4')) return route.fulfill({ path: fixture, contentType: 'video/webm' });
+    // A short fixture keeps long background downloads from blocking timer-driven tests.
+    if (url.pathname.endsWith('.mp4') && !realMedia) return route.fulfill({ path: fixture, contentType: 'video/webm' });
+    if (url.origin === origin) return route.continue();
+    // Compare the approved baseline with the same original font and image bytes.
+    const imported = mediaSources.find(asset => asset.source === url.href);
+    if (imported) return route.fulfill({ path: path.join(root, imported.path), contentType: types[path.extname(imported.path)] });
     if (request.resourceType() === 'image') return route.fulfill({ body: image, contentType: 'image/png' });
     if (request.resourceType() === 'document') return route.fulfill({
       body: '<!doctype html><title>Test player</title><button>Player controls</button>', contentType: 'text/html',
@@ -111,6 +118,67 @@ test('Approved baseline typography, colors, controls and layout are preserved', 
       } finally { await context.close(); }
     });
   }
+});
+
+test('Owned artwork, logos, font and background video work without third-party media requests', async () => {
+  const { page, context, requests, errors } = await openPage({ reducedMotion: 'reduce', clock: true, realMedia: true });
+  try {
+    const decoded = await page.evaluate(async () => {
+      const data = JSON.parse(document.querySelector('#site-data').textContent);
+      const urls = [...new Set([data.poster, ...data.music.map(release => release.image),
+        ...[...document.querySelectorAll('.socials img, footer img')].map(image => image.getAttribute('src'))])];
+      const images = await Promise.all(urls.map(async url => {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        return { local: new URL(image.src).origin === location.origin, width: image.naturalWidth, height: image.naturalHeight };
+      }));
+      await document.fonts.load('48px Advert');
+      return { images, fontLoaded: [...document.fonts].some(font => font.family === 'Advert' && font.status === 'loaded') };
+    });
+    assert(decoded.images.every(image => image.local && image.width > 0 && image.height > 0));
+    assert.equal(decoded.fontLoaded, true);
+    await page.locator('.motion').click();
+    await page.waitForFunction(() => {
+      const video = document.querySelector('.backdrop');
+      return !video.paused && video.readyState >= 2 && video.videoWidth > 0;
+    });
+    assert.equal(await page.locator('.backdrop').evaluate(video => new URL(video.currentSrc).origin === location.origin), true);
+    assert.equal(requests.some(request => /website-files\.com|ffmcdn\.com|imagestore\.ffm\.to/.test(new URL(request.url).hostname)), false);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('The link helper shows only unfinished services, rejects invalid links and copies a saved reply', async () => {
+  const { page, context, errors } = await openPage({ query: '/music-links.html', viewport: { width: 390, height: 844 } });
+  try {
+    const missing = releases.flatMap(release => release.services.filter(service => service.search)
+      .map(service => ({ release: release.title, service: service.name })));
+    await page.locator('#actions').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.row input').count(), missing.length);
+    const input = page.locator('.row input').first();
+    const copy = page.getByRole('button', { name: 'Copy links', exact: true });
+    await input.fill('https://example.com/album/not-the-music-service');
+    await copy.click();
+    assert.equal(await input.getAttribute('aria-invalid'), 'true');
+    assert.equal(await page.locator('#output').isVisible(), false);
+    // A known URL exercises collection and storage, without claiming title verification.
+    const sample = releases.flatMap(release => release.services).find(service => service.name === missing[0].service && !service.search).url;
+    await input.fill(sample);
+    await copy.click();
+    assert.deepEqual(JSON.parse(await page.locator('#collected').inputValue()).links,
+      [{ ...missing[0], url: sample }]);
+    await page.reload({ waitUntil: 'networkidle' });
+    assert.equal(await input.inputValue(), sample);
+    await page.locator('.row .fields button').first().click();
+    assert.equal(await input.inputValue(), '');
+    await page.locator('.row > button').first().click();
+    await copy.click();
+    assert.deepEqual(JSON.parse(await page.locator('#collected').inputValue()).links,
+      [{ ...missing[0], status: 'not_found' }]);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
 });
 
 test('Small phones, landscape and desktop keep carousel controls inside a usable scroll area', async t => {
@@ -283,7 +351,7 @@ test('Every music cover and title opens services in place, pauses rotation, and 
     assert.equal(await page.locator('#music .dot').count(), 7);
     assert.equal(await page.getByRole('button', { name: 'More Fatter Complete', exact: true }).count(), 0);
     const url = page.url();
-    const externalDocuments = () => requests.filter(request => request.type === 'document').length;
+    const externalDocuments = () => requests.filter(request => request.type === 'document' && !request.url.startsWith(origin)).length;
     const initialDocuments = externalDocuments();
     for (let selected = 0; selected < releases.length; selected++) {
       const release = releases[selected];
@@ -607,7 +675,7 @@ test('Signup validates email and hands it to the configured Mailchimp form witho
     await email.fill('not-an-email');
     await submit.click();
     assert.equal(await email.evaluate(node => node.validity.typeMismatch), true);
-    assert.equal(requests.filter(request => request.type === 'document').length, 0);
+    assert.equal(requests.filter(request => request.type === 'document' && !request.url.startsWith(origin)).length, 0);
     const address = 'fan@example.test';
     await email.fill(address);
     const form = dialog.locator('form');
@@ -617,7 +685,7 @@ test('Signup validates email and hands it to the configured Mailchimp form witho
     await submit.click();
     const popup = await popupPromise;
     await popup.waitForLoadState('domcontentloaded');
-    const request = requests.find(request => request.type === 'document');
+    const request = requests.find(request => request.type === 'document' && !request.url.startsWith(origin));
     assert.equal(request.method, method);
     const destination = new URL(request.url);
     assert.equal(destination.origin + destination.pathname, new URL(action).origin + new URL(action).pathname);

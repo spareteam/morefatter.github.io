@@ -20,7 +20,7 @@ for (const name of ['app.js', 'shop.js', 'style.css']) {
   html = html.replace(reference, `${attribute}="${versioned}"`);
 }
 writeFileSync(resolve(output, 'index.html'), html);
-for (const name of ['content.json', '.nojekyll']) cpSync(resolve(root, name), resolve(output, name));
+for (const name of ['content.json', '.nojekyll', 'music-links.html']) cpSync(resolve(root, name), resolve(output, name));
 if (existsSync(resolve(root, 'assets'))) cpSync(resolve(root, 'assets'), resolve(output, 'assets'), { recursive: true });
 writeFileSync(resolve(output, 'build-info.json'), JSON.stringify({
   commit: process.env.GITHUB_SHA || null,

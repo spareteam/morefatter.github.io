@@ -1,0 +1,143 @@
+{
+  "description": "Band-owned media mirrored from the existing More Fatter website. External streaming, ticketing, video-player, mailing-list and shop services remain external. Images and font are byte-for-byte originals; only the background film is recompressed.",
+  "entries": [
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6%2F69a5a16e733a5c31d8774b7a_copy_55F9FDE6-6A6D-4316-AA8A-20BDDED4843C_mp4.mp4",
+      "path": "assets/media/background.mp4",
+      "sha256": "548b5023ab354b54d8dfd7527506eda598932c8bf7a9fabfc0465bfd4cf891af",
+      "bytes": 5517435,
+      "original_sha256": "2e43d51b97e6c85c66c53d0f3674a10b818c3f52d87533ca12c8ca0a961c2289",
+      "original_bytes": 7487615,
+      "conversion": {
+        "tool": "ffmpeg / libx264",
+        "settings": "-preset slow -crf 23 -pix_fmt yuv420p -profile:v high -level 3.1 -movflags +faststart -an",
+        "dimensions": "1280x720",
+        "frame_rate": "30/1",
+        "frames": 1201,
+        "duration_seconds": 40.033333,
+        "ssim_against_original": 0.990815,
+        "bytes_saved": 1970180
+      }
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6%2F69a5a16e733a5c31d8774b7a_copy_55F9FDE6-6A6D-4316-AA8A-20BDDED4843C_poster.0000000.jpg",
+      "path": "assets/media/background-poster.jpg",
+      "sha256": "3ee4101654bfec0041f2b4a98757e7e6c93295b3153a8f7cb4c226f296a6109f",
+      "bytes": 80742,
+      "original_sha256": "3ee4101654bfec0041f2b4a98757e7e6c93295b3153a8f7cb4c226f296a6109f",
+      "original_bytes": 80742
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7fe760810dc9_Advert-Regular.ttf",
+      "path": "assets/fonts/advert-regular.ttf",
+      "sha256": "ddd176ecf781b3df87f0dfff60e550f4e036d200eb1e14f05781b831d9a4dcf3",
+      "bytes": 34796,
+      "original_sha256": "ddd176ecf781b3df87f0dfff60e550f4e036d200eb1e14f05781b831d9a4dcf3",
+      "original_bytes": 34796
+    },
+    {
+      "source": "https://imagestore.ffm.to/link/1aa9337bf9415cc50cb9db43c469cf9e.jpeg",
+      "path": "assets/covers/good-morning-el-sereno.jpeg",
+      "sha256": "8c942173574e62ae581d64e9d3488447178a3ae5a045faeb2987b2efd78820f3",
+      "bytes": 140426,
+      "original_sha256": "8c942173574e62ae581d64e9d3488447178a3ae5a045faeb2987b2efd78820f3",
+      "original_bytes": 140426
+    },
+    {
+      "source": "https://imagestore.ffm.to/link/84569b08255a459455914684fb6e69aa.jpeg",
+      "path": "assets/covers/fat-chance.jpeg",
+      "sha256": "49c1d66384501327c561488d09ee82797d84cf5e6fce8398a9309f7ba3c93fe6",
+      "bytes": 105243,
+      "original_sha256": "49c1d66384501327c561488d09ee82797d84cf5e6fce8398a9309f7ba3c93fe6",
+      "original_bytes": 105243
+    },
+    {
+      "source": "https://imagestore.ffm.to/link/a86166357276b269649b918b6f86d30f.jpeg",
+      "path": "assets/covers/fat-chance-acoustic.jpeg",
+      "sha256": "82f662ed3ba6729b347d529e8fe93e6fcc6262f8f4cbc40e4ab816dab8c66408",
+      "bytes": 149285,
+      "original_sha256": "82f662ed3ba6729b347d529e8fe93e6fcc6262f8f4cbc40e4ab816dab8c66408",
+      "original_bytes": 149285
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/63618e0dc4c393f4690bce49_Weirdo%20Cover%20Art.png",
+      "path": "assets/covers/weirdo.png",
+      "sha256": "8e825331e2fa84a95b0a61ebad9110f8aa60b87d46bab19fad51580de41600c6",
+      "bytes": 53406,
+      "original_sha256": "8e825331e2fa84a95b0a61ebad9110f8aa60b87d46bab19fad51580de41600c6",
+      "original_bytes": 53406
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/63618e0ddc70c35124cc9f2e_yeah%20you.jpeg",
+      "path": "assets/covers/yeah-you.jpeg",
+      "sha256": "cdec2ef193e3b5a976e64b115b5699c4e42f5d612e6ed566759495a6d25e759e",
+      "bytes": 74011,
+      "original_sha256": "cdec2ef193e3b5a976e64b115b5699c4e42f5d612e6ed566759495a6d25e759e",
+      "original_bytes": 74011
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/650d27dbb022e42bdb942477_3000x3000-621229--8965138C-0BAC-4FED-B4325B7A7FCA44F2--0--587299--NewProject3.jpeg",
+      "path": "assets/covers/fat-haus.jpeg",
+      "sha256": "1a140c2c9e7b667aa644855129743eb376be4bbb3aaa3fbdf0764f4a3d8925b7",
+      "bytes": 387779,
+      "original_sha256": "1a140c2c9e7b667aa644855129743eb376be4bbb3aaa3fbdf0764f4a3d8925b7",
+      "original_bytes": 387779
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/63618e0dc42f804fe2a28801_livin%20in%20a%20museum.jpeg",
+      "path": "assets/covers/livin-in-a-museum.jpeg",
+      "sha256": "55c526621b12391fc1c39dacf9f28ffa0ad1ed8453d438cdf864d09426470f2a",
+      "bytes": 343523,
+      "original_sha256": "55c526621b12391fc1c39dacf9f28ffa0ad1ed8453d438cdf864d09426470f2a",
+      "original_bytes": 343523
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/636194169dd60d833876f89f_ig-white.png",
+      "path": "assets/icons/ig-white.png",
+      "sha256": "e5067e1caaff431db9d184c7a542d3c29ae677be1c6f0564e3ece0d7d40a7073",
+      "bytes": 20803,
+      "original_sha256": "e5067e1caaff431db9d184c7a542d3c29ae677be1c6f0564e3ece0d7d40a7073",
+      "original_bytes": 20803
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f243f810dd7_spotify-white.png",
+      "path": "assets/icons/spotify-white.png",
+      "sha256": "abba5c256cb84497281e414930bc56b0eb3a0749ef080508e796e436767ec25e",
+      "bytes": 30165,
+      "original_sha256": "abba5c256cb84497281e414930bc56b0eb3a0749ef080508e796e436767ec25e",
+      "original_bytes": 30165
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7fac9f810dd9_applemusic-white.png",
+      "path": "assets/icons/applemusic-white.png",
+      "sha256": "4c6010c16a6b6d7c463d463fc37f41f676a0cdf585b66e628ecb3fa01a226ee9",
+      "bytes": 20135,
+      "original_sha256": "4c6010c16a6b6d7c463d463fc37f41f676a0cdf585b66e628ecb3fa01a226ee9",
+      "original_bytes": 20135
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f1a7f810de7_yt-white.png",
+      "path": "assets/icons/yt-white.png",
+      "sha256": "59f6a6490e4ab637e51f4280d68efb708610e09303c5e6dc0e08bb7f19f54222",
+      "bytes": 9762,
+      "original_sha256": "59f6a6490e4ab637e51f4280d68efb708610e09303c5e6dc0e08bb7f19f54222",
+      "original_bytes": 9762
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f2cee810db6_youtube-subscribe-button.svg",
+      "path": "assets/icons/youtube-subscribe-button.svg",
+      "sha256": "5ec5e4264cae2b99d4b929411ae331f7d60fac475efa3b9f041bda2168a59cce",
+      "bytes": 8845,
+      "original_sha256": "5ec5e4264cae2b99d4b929411ae331f7d60fac475efa3b9f041bda2168a59cce",
+      "original_bytes": 8845
+    },
+    {
+      "source": "https://cdn.prod.website-files.com/6356d41c87ce7f81c2810da6/6356d41c87ce7f284a810dbb_Spotify_Logo_CMYK_Green.png",
+      "path": "assets/icons/spotify-logo-green.png",
+      "sha256": "b1456073b2d00f3d81b1963b46a52a3021f2cf5f95ea06409db88295c5326ac9",
+      "bytes": 47582,
+      "original_sha256": "b1456073b2d00f3d81b1963b46a52a3021f2cf5f95ea06409db88295c5326ac9",
+      "original_bytes": 47582
+    }
+  ]
+}

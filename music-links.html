@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#000000">
+<title>Finish the music links — More Fatter</title>
+<style>
+@font-face{font-family:Advert;src:url('assets/fonts/advert-regular.ttf')}*{box-sizing:border-box}body{margin:0;background:#000;color:#fff;font:16px/1.5 Arial,sans-serif}main{width:min(800px,calc(100% - 36px));margin:32px auto 64px}a{color:inherit}h1{margin:0 0 12px;font-family:Advert,Georgia,serif;font-size:clamp(30px,6vw,44px);font-weight:400;line-height:1.2}h2{font-size:22px;font-weight:500;margin:0}p,ol{margin:0 0 18px}ol{padding-left:24px}li{padding-left:4px;margin-bottom:6px}.muted{color:#ffffffb3;font-size:14px}.release{border-top:1px solid #ffffff50;padding:24px 0}.release-heading{display:flex;align-items:center;gap:18px;margin-bottom:20px}.cover{width:88px;height:88px;object-fit:cover}.row{margin:0 0 24px}.row-header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px}.provider{display:flex;align-items:center;gap:10px}.provider img{width:25px;height:25px}.open{font-size:14px;text-underline-offset:4px}.field-label{display:block;margin-bottom:6px;font-size:14px}.fields{display:flex;gap:10px}input,textarea,button{font:inherit;color:inherit}input,textarea{width:100%;min-width:0;border:1px solid #ffffff80;border-radius:0;background:#0b0b0b;padding:11px}input{flex:1}button{background:transparent;border:1px solid #fff;border-radius:0;min-height:44px;padding:10px 15px;cursor:pointer}button:hover{background:#ffffff15}button:disabled{opacity:.5;cursor:default}input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #ffb73d;outline-offset:4px}.clear{font-size:14px;border-color:#ffffff80}.row>button{margin-top:10px}.error{color:#ffb73d;font-size:14px;margin:7px 0 0}.error:empty{display:none}input[aria-invalid=true]{border-color:#ffb73d}.actions{border-top:1px solid #ffffff50;padding-top:24px}#status{margin:14px 0;min-height:24px}#output{margin-top:20px}#collected{min-height:230px;font:13px/1.5 monospace;resize:vertical}.home{display:inline-block;margin-top:32px;font-size:14px;text-underline-offset:4px}[hidden]{display:none!important}@media(max-width:500px){main{margin-top:24px}.cover{width:72px;height:72px}.release-heading{gap:14px}.fields{gap:8px}.clear{padding-inline:10px}}
+</style>
+</head>
+<body>
+<main>
+<h1>Finish the music links</h1>
+<p>A few albums still need their own streaming links. Here is the easy way to send them over:</p>
+<ol>
+<li>Press <strong>Open</strong> below. Find the right More Fatter album or song.</li>
+<li>Press <strong>Share</strong> on that album or song, then <strong>Copy link</strong>.</li>
+<li>Come back here and paste the link into its box. When you are done, press <strong>Copy links</strong> and paste them into our chat.</li>
+</ol>
+<p class="muted">Do whichever ones you can. Leave any box empty to skip it, or press “I can't find it” and we will check that one again.</p>
+<p id="loading" role="status">Loading the missing links…</p>
+<div id="releases"></div>
+<div id="actions" class="actions" hidden>
+<button id="copy" type="button">Copy links</button>
+<p id="status" role="status" aria-live="polite"></p>
+<section id="output" hidden aria-label="Collected music links">
+<label class="field-label" for="collected">Your links — copy this text into our chat</label>
+<textarea id="collected" readonly spellcheck="false"></textarea>
+</section>
+</div>
+<a class="home" href="./">Back to More Fatter ↗</a>
+<noscript><p>Turn on JavaScript to load the missing music links.</p></noscript>
+</main>
+<script>
+(() => {
+  'use strict';
+  const storageKey = 'morefatter:music-link-helper:v1';
+  const loading = document.querySelector('#loading');
+  const releases = document.querySelector('#releases');
+  const actions = document.querySelector('#actions');
+  const status = document.querySelector('#status');
+  const output = document.querySelector('#output');
+  const collected = document.querySelector('#collected');
+  const rows = [];
+  let saved = {};
+  try {
+    const draft = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    if (draft && typeof draft === 'object' && !Array.isArray(draft)) saved = draft;
+  } catch (_) { /* The helper also works without browser storage. */ }
+
+  function node(tag, className, text) {
+    const item = document.createElement(tag);
+    if (className) item.className = className;
+    if (text !== undefined) item.textContent = text;
+    return item;
+  }
+
+  function exactLink(value, provider) {
+    let url;
+    try { url = new URL(value.trim()); } catch (_) { return null; }
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
+    const host = url.hostname.toLowerCase();
+    const path = url.pathname.replace(/\/+$/, '');
+    let valid = false;
+    if (provider === 'TIDAL') {
+      valid = ['tidal.com','www.tidal.com','listen.tidal.com'].includes(host) && /^\/(?:browse\/)?(?:album|track)\/[0-9]+$/.test(path);
+    } else if (provider === 'Amazon Music' || provider === 'Amazon') {
+      valid = /^music\.amazon\.(?:com|co\.uk|de|fr|it|es|co\.jp|ca|com\.au|com\.br|in|com\.mx)$/.test(host) && /^\/(?:albums|tracks)\/[A-Z0-9]{10}$/i.test(path);
+    } else if (provider === 'YouTube Music') {
+      valid = host === 'music.youtube.com' && ((path === '/playlist' && /^[A-Za-z0-9_-]{10,}$/.test(url.searchParams.get('list') || '')) || (path === '/watch' && /^[A-Za-z0-9_-]{11}$/.test(url.searchParams.get('v') || '')));
+    } else if (provider === 'YouTube') {
+      valid = ['youtube.com','www.youtube.com'].includes(host) && ((path === '/playlist' && /^[A-Za-z0-9_-]{10,}$/.test(url.searchParams.get('list') || '')) || (path === '/watch' && /^[A-Za-z0-9_-]{11}$/.test(url.searchParams.get('v') || '')));
+    } else if (provider === 'Spotify') {
+      valid = host === 'open.spotify.com' && /^\/(?:intl-[a-z]{2}\/)?(?:album|track)\/[A-Za-z0-9]{22}$/.test(path);
+    } else if (provider === 'Apple Music') {
+      valid = ['music.apple.com','geo.music.apple.com'].includes(host) && /^\/(?:[a-z]{2}\/)?album\/(?:[^/]+\/)?[0-9]+$/.test(path);
+    } else if (provider === 'Deezer') {
+      valid = ['deezer.com','www.deezer.com'].includes(host) && /^\/(?:[a-z]{2}\/)?(?:album|track)\/[0-9]+$/.test(path);
+    }
+    if (!valid) return null;
+    url.hash = '';
+    return url.href;
+  }
+
+  function setError(row, message) {
+    row.error.textContent = message;
+    row.input.setAttribute('aria-invalid', message ? 'true' : 'false');
+  }
+
+  function validate(row) {
+    if (row.notFound || !row.input.value.trim()) { setError(row, ''); return true; }
+    const valid = exactLink(row.input.value, row.service.name);
+    setError(row, valid ? '' : 'That does not look like an album or song link for ' + row.service.name + '. Open the album or song, then use Share → Copy link.');
+    return Boolean(valid);
+  }
+
+  function save() {
+    const draft = {};
+    for (const row of rows) {
+      if (row.notFound) draft[row.key] = { not_found: true };
+      else if (row.input.value.trim()) draft[row.key] = row.input.value;
+    }
+    try { localStorage.setItem(storageKey, JSON.stringify(draft)); } catch (_) { /* Pasting and copying remain available. */ }
+  }
+
+  function safeAsset(path) {
+    try {
+      const url = new URL(path, document.baseURI);
+      const assetsRoot = new URL('assets/', document.baseURI);
+      return url.origin === assetsRoot.origin && url.pathname.startsWith(assetsRoot.pathname) ? url.href : '';
+    } catch (_) { return ''; }
+  }
+
+  function addRelease(release, missing) {
+    const section = node('section', 'release');
+    const heading = node('div', 'release-heading');
+    const cover = node('img', 'cover');
+    cover.src = safeAsset(release.image);
+    cover.alt = '';
+    cover.loading = 'lazy';
+    heading.append(cover, node('h2', '', release.title));
+    section.append(heading);
+    for (const service of missing) {
+      const number = rows.length;
+      const key = JSON.stringify([release.title, service.name]);
+      const container = node('div', 'row');
+      const header = node('div', 'row-header');
+      const provider = node('span', 'provider');
+      if (/^[a-z0-9]+$/.test(service.icon || '')) {
+        const icon = node('img'); icon.src = 'assets/services/' + service.icon + '.svg'; icon.alt = ''; provider.append(icon);
+      }
+      provider.append(node('span', '', service.name));
+      const open = node('a', 'open', 'Open ' + service.name + ' ↗');
+      const destination = new URL(service.url);
+      if (destination.protocol !== 'https:' || destination.username || destination.password) throw new Error('Invalid music service destination.');
+      open.href = destination.href; open.target = '_blank'; open.rel = 'noopener noreferrer';
+      open.setAttribute('aria-label', 'Open ' + service.name + ' to find ' + release.title + ' (new tab)');
+      header.append(provider, open);
+      const label = node('label', 'field-label', 'Paste the ' + service.name + ' link for ' + release.title);
+      const input = node('input'); input.type = 'url'; input.id = 'music-link-' + number; input.inputMode = 'url'; input.placeholder = 'https://…'; input.autocomplete = 'off'; input.spellcheck = false;
+      input.setAttribute('aria-invalid', 'false'); input.setAttribute('aria-describedby', 'music-error-' + number);
+      label.htmlFor = input.id;
+      input.value = typeof saved[key] === 'string' ? saved[key] : '';
+      const error = node('p', 'error'); error.id = 'music-error-' + number; error.setAttribute('aria-live', 'polite');
+      const clear = node('button', 'clear', 'Clear'); clear.type = 'button'; clear.setAttribute('aria-label', 'Clear the ' + service.name + ' link for ' + release.title);
+      const fields = node('div', 'fields'); fields.append(input, clear);
+      const notFound = node('button', 'clear', "I can't find it"); notFound.type = 'button'; notFound.setAttribute('aria-label', 'Mark the ' + service.name + ' link for ' + release.title + ' as not found');
+      const row = { release: release.title, service, key, input, error, notFound: false };
+      function markNotFound(value) {
+        row.notFound = value; input.disabled = value; notFound.setAttribute('aria-pressed', String(value)); notFound.textContent = value ? 'Try finding it again' : "I can't find it"; notFound.setAttribute('aria-label', notFound.textContent + ': ' + release.title + ' on ' + service.name);
+        if (value) input.value = '';
+        setError(row, '');
+      }
+      markNotFound(Boolean(saved[key] && saved[key].not_found === true));
+      notFound.addEventListener('click', () => {
+        markNotFound(!row.notFound); output.hidden = true; save();
+        status.textContent = row.notFound ? 'Marked ' + release.title + ' on ' + service.name + ' as not found. We can check it again.' : 'You can paste a link for ' + release.title + ' on ' + service.name + ' again.';
+        if (!row.notFound) input.focus();
+      });
+      input.addEventListener('input', () => { setError(row, ''); output.hidden = true; status.textContent = ''; save(); });
+      input.addEventListener('blur', () => validate(row));
+      clear.addEventListener('click', () => { markNotFound(false); input.value = ''; setError(row, ''); output.hidden = true; status.textContent = 'Cleared the ' + service.name + ' link for ' + release.title + '.'; save(); input.focus(); });
+      rows.push(row);
+      container.append(header, label, fields, error, notFound); section.append(container);
+    }
+    releases.append(section);
+  }
+
+  document.querySelector('#copy').addEventListener('click', async () => {
+    let firstInvalid = null;
+    for (const row of rows) if (!validate(row) && !firstInvalid) firstInvalid = row;
+    if (firstInvalid) {
+      status.textContent = 'Check the highlighted link below. You can also clear it to skip it.';
+      firstInvalid.input.focus(); return;
+    }
+    const links = rows.filter(row => row.notFound || row.input.value.trim()).map(row => row.notFound
+      ? { release: row.release, service: row.service.name, status: 'not_found' }
+      : { release: row.release, service: row.service.name, url: exactLink(row.input.value, row.service.name) });
+    if (!links.length) { status.textContent = "Paste a link or press “I can't find it” first. You can leave the others empty."; return; }
+    collected.value = JSON.stringify({ links }, null, 2);
+    output.hidden = false;
+    try {
+      if (!navigator.clipboard || !window.isSecureContext) throw new Error('Clipboard unavailable.');
+      await navigator.clipboard.writeText(collected.value);
+      status.textContent = 'Copied! Paste this into our chat.';
+    } catch (_) {
+      status.textContent = 'Your links are ready below. Copy the selected text and paste it into our chat.';
+      collected.focus(); collected.select();
+    }
+  });
+
+  fetch('content.json', { cache: 'no-store' }).then(response => {
+    if (!response.ok) throw new Error('Content could not be loaded.');
+    return response.json();
+  }).then(content => {
+    for (const release of content.music || []) {
+      const missing = (release.services || []).filter(service => service.search === true);
+      if (missing.length) addRelease(release, missing);
+    }
+    if (rows.length) {
+      loading.textContent = rows.length + ' music ' + (rows.length === 1 ? 'link is' : 'links are') + ' left. Pick any one to start.';
+      actions.hidden = false;
+    } else {
+      loading.textContent = 'All the music links are already finished. There is nothing you need to do!';
+    }
+  }).catch(() => {
+    releases.replaceChildren(); actions.hidden = true;
+    loading.textContent = 'The music list did not load. Refresh this page to try again.';
+  });
+})();
+</script>
+</body>
+</html>

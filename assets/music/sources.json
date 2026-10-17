@@ -1,0 +1,179 @@
+{
+  "checked_at": "2026-10-17T23:21:33.836674+00:00",
+  "entries": [
+    {
+      "release": "Weirdo",
+      "service": "Apple Music",
+      "url": "https://music.apple.com/us/album/weirdo-single/1527524884",
+      "source": "https://itunes.apple.com/lookup?id=1131989027&entity=album&limit=200",
+      "evidence": "Official Apple artist album lookup names More Fatter and exact release; each release page additionally fetched HTTP200 with matching metadata.",
+      "certainty": "verified provider catalog and destination"
+    },
+    {
+      "release": "Yeah You",
+      "service": "Apple Music",
+      "url": "https://music.apple.com/us/album/yeah-you-single/1448666063",
+      "source": "https://itunes.apple.com/lookup?id=1131989027&entity=album&limit=200",
+      "evidence": "Official Apple artist album lookup names More Fatter and exact release; each release page additionally fetched HTTP200 with matching metadata.",
+      "certainty": "verified provider catalog and destination"
+    },
+    {
+      "release": "Fat Haus EP",
+      "service": "Apple Music",
+      "url": "https://music.apple.com/us/album/fat-haus-ep/1698273767",
+      "source": "https://itunes.apple.com/lookup?id=1131989027&entity=album&limit=200",
+      "evidence": "Official Apple artist album lookup names More Fatter and exact release; each release page additionally fetched HTTP200 with matching metadata.",
+      "certainty": "verified provider catalog and destination"
+    },
+    {
+      "release": "Livin’ in a Museum",
+      "service": "Apple Music",
+      "url": "https://music.apple.com/us/album/livin-in-a-museum-single/1485321006",
+      "source": "https://itunes.apple.com/lookup?id=1131989027&entity=album&limit=200",
+      "evidence": "Official Apple artist album lookup names More Fatter and exact release; each release page additionally fetched HTTP200 with matching metadata.",
+      "certainty": "verified provider catalog and destination"
+    },
+    {
+      "release": "Fat Haus EP",
+      "service": "Spotify",
+      "url": "https://open.spotify.com/album/4vLEPADHDiZd7UOYzK3aXi",
+      "source": "https://distrokid.com/hyperfollow/morefatter/fat-haus",
+      "evidence": "Release title More Fatter matches; actual public Hyperfollow store anchor points to this exact album.",
+      "certainty": "verified official distributor source; destination fetch limited by provider/proxy"
+    },
+    {
+      "release": "Fat Haus EP",
+      "service": "Deezer",
+      "url": "https://www.deezer.com/album/466155485",
+      "source": "https://distrokid.com/hyperfollow/morefatter/fat-haus",
+      "evidence": "Release title More Fatter matches; actual public Hyperfollow store anchor points to this exact album.",
+      "certainty": "verified official distributor source; destination fetch limited by provider/proxy"
+    },
+    {
+      "release": "Livin’ in a Museum",
+      "service": "Deezer",
+      "url": "https://www.deezer.com/album/116791062",
+      "source": "https://distrokid.com/hyperfollow/morefatter/livin-in-a-museum",
+      "evidence": "Release title More Fatter matches; actual public Hyperfollow store anchor points to this exact album.",
+      "certainty": "verified official distributor source; destination fetch limited by provider/proxy"
+    },
+    {
+      "release": "Yeah You",
+      "service": "TIDAL",
+      "url": "https://www.tidal.com/album/101975639",
+      "source": "https://distrokid.com/hyperfollow/morefatter/gc0c",
+      "evidence": "Official band homepage links this opaque DistroKid gc0c path; page title Yeah You by More Fatter and exact store anchors verify identity and destination.",
+      "certainty": "verified official distributor source AND destination fetched HTTP200 title Yeah You by More Fatter on TIDAL"
+    },
+    {
+      "release": "Yeah You",
+      "service": "Deezer",
+      "url": "https://www.deezer.com/album/83581382",
+      "source": "https://distrokid.com/hyperfollow/morefatter/gc0c",
+      "evidence": "Official band homepage links this opaque DistroKid gc0c path; page title Yeah You by More Fatter and exact store anchors verify identity and destination.",
+      "certainty": "verified official distributor source"
+    },
+    {
+      "release": "Weirdo",
+      "service": "Deezer",
+      "url": "https://www.deezer.com/album/166909642",
+      "source": "https://api.deezer.com/album/166909642",
+      "evidence": "Official Deezer artist10662647 More Fatter catalog and album detail: exact singleWeirdo, release2020-07-31,UPC195397863946. HTTP200 on normal GitHub Actions runner.",
+      "certainty": "verified public provider catalog"
+    },
+    {
+      "release": "Weirdo",
+      "service": "YouTube Music",
+      "url": "https://music.youtube.com/playlist?list=OLAK5uy_m2-XakHYvfCXnuLbpnJRHL3AHV-eKbSCQ",
+      "source": "https://music.youtube.com/browse/MPREb_s3NjYMaKjDK",
+      "evidence": "Public YouTube Music album search and get_album identify exact singleWeirdo (2020),artistMoreFatterUCeFARnwdOKoHg7Pwwdo4CWg; albumaudioPlaylistId is thisOLAK id and soletrackvideoIdTlTxAwYypvs matches existing officialvideo.",
+      "certainty": "verified public provider catalog"
+    },
+    {
+      "release": "Yeah You",
+      "service": "YouTube Music",
+      "url": "https://music.youtube.com/playlist?list=OLAK5uy_m3dSeAbsYU3BmL7lEM_QaCZSkfvmLeBNI",
+      "source": "https://music.youtube.com/browse/MPREb_TBr2KZsZrdL",
+      "evidence": "Public YouTube Music album search and get_album identify exact singleYeahYou (2019),artistMoreFatterUCeFARnwdOKoHg7Pwwdo4CWg; albumaudioPlaylistId is thisOLAK id and soletrackvideoIdhZqqdBjq-Ns matches existing officialvideo.",
+      "certainty": "verified public provider catalog"
+    },
+    {
+      "release": "Livin’ in a Museum",
+      "service": "YouTube Music",
+      "url": "https://music.youtube.com/playlist?list=OLAK5uy_nRyug0RbmCVDqk0cpynpnRXQ2sWNMTlAk",
+      "source": "https://music.youtube.com/browse/MPREb_E2vM6OcaWrS",
+      "evidence": "Public YouTube Music original singleLivin in a Museum (2017),artistMoreFatterUCeFARnwdOKoHg7Pwwdo4CWg; soletrackAO_-QvxCxck,3:41(duration roundedup221s). Cross-check official Applelookup1485321006&entity=song gives exact single,MoreFatter,2017-06-01,220362ms; Deezer original116791062 track790406672 duration220s. Matches same originalsingle ratherthan whereareyoualbumversion.",
+      "certainty": "verified public provider catalog and cross-provider duration/release match"
+    },
+    {
+      "release": "Weirdo",
+      "service": "TIDAL",
+      "url": "https://tidal.com/album/152166572",
+      "source": "https://tidal.com/artist/7977491",
+      "evidence": "The public TIDAL More Fatter artist catalog, rendered by an ordinary anonymous browser, shows an exact Weirdo album link152166572. Provider title and artist identity match; final destination metadata is being checked in the last audit. Exact album destination also loaded in the subsequent ordinary-browser audit and named the matching release and More Fatter, with the correct original track list and durations.",
+      "certainty": "verified public provider catalog and exact destination metadata"
+    },
+    {
+      "release": "Fat Haus EP",
+      "service": "TIDAL",
+      "url": "https://tidal.com/album/305619972",
+      "source": "https://tidal.com/artist/7977491",
+      "evidence": "The public TIDAL More Fatter artist catalog lists fat haus with exact album link305619972 in its singles and EPs section. Normal anonymous browser, without authentication or challenge bypass. Exact album destination also loaded in the subsequent ordinary-browser audit and named the matching release and More Fatter, with the correct original track list and durations.",
+      "certainty": "verified public provider catalog and exact destination metadata"
+    },
+    {
+      "release": "Weirdo",
+      "service": "Amazon Music",
+      "url": "https://music.amazon.com/albums/B08FZK5KJ1",
+      "source": "https://music.amazon.com/search/More%20Fatter%20Weirdo",
+      "evidence": "Normal anonymous Amazon Music search lists album Weirdo and artist More Fatter (artist B01I3UENH4), exact album B08FZK5KJ1 and song B08FZJX3WD. Distinct from later weirdo :/ on Fat Chance album B0CS5FMM3G. Exact album destination also loaded in the subsequent ordinary-browser audit and named the matching release and More Fatter, with the correct original track list and durations.",
+      "certainty": "verified public provider catalog and exact destination metadata"
+    },
+    {
+      "release": "Fat Haus EP",
+      "service": "Amazon Music",
+      "url": "https://music.amazon.com/albums/B0CC8Q9HNM",
+      "source": "https://music.amazon.com/search/More%20Fatter%20fat%20haus",
+      "evidence": "Normal anonymous Amazon Music search lists exact album fat haus by More Fatter (artist B01I3UENH4), album B0CC8Q9HNM; track Rae points into the same album with track ASIN B0CC8L61JQ. Exact album destination also loaded in the subsequent ordinary-browser audit and named the matching release and More Fatter, with the correct original track list and durations.",
+      "certainty": "verified public provider catalog and exact destination metadata"
+    },
+    {
+      "release": "Livin’ in a Museum",
+      "service": "TIDAL",
+      "url": "https://tidal.com/album/121246450",
+      "source": "https://tidal.com/artist/ARTIST_TOP_SINGLES/view-all?artistId=7977491",
+      "evidence": "Normal anonymous browser read the public catalog JSON response from tidal.com/v2/artist/ARTIST_TOP_SINGLES/view-all. It explicitly gives exact single title Livin in a Museum, id121246450, artist7977491 More Fatter, UPC194871726760, releaseDate2017-06-01. UPC exactly matches Deezer original single116791062. Known destination then fetched HTTP200 with matching More Fatter/title metadata.",
+      "certainty": "verified public provider catalog and/or destination metadata"
+    },
+    {
+      "release": "Yeah You",
+      "service": "Amazon Music",
+      "url": "https://music.amazon.com/albums/B07M77QKF6",
+      "source": "https://music.amazon.com/search/More%20Fatter%20Yeah%20You",
+      "evidence": "Normal anonymous Amazon Music search shows exact original Yeah You single B07M77QKF6 by More Fatter, track B07MPX15DQ; distinct from album Fatterludes B07ZS4Y691 and remixes. This verifies the Music streaming URL corresponding to the old distributor product ASIN, so label Amazon Music / Play rather than Amazon / Download.",
+      "certainty": "verified public provider catalog and/or destination metadata"
+    },
+    {
+      "release": "Livin’ in a Museum",
+      "service": "Amazon Music",
+      "url": "https://music.amazon.com/albums/B07ZPJ3XR6",
+      "source": "https://music.amazon.com/search/More%20Fatter%20Livin%20in%20a%20Museum",
+      "evidence": "Normal anonymous Amazon Music search shows exact original Livin in a Museum single B07ZPJ3XR6 by More Fatter and song B07ZPJGKF9. This verifies the Music streaming URL corresponding to the old distributor product ASIN, so label Amazon Music / Play rather than Amazon / Download.",
+      "certainty": "verified public provider catalog and/or destination metadata"
+    }
+  ],
+  "catalog_audit_run": "https://github.com/spareteam/morefatter.github.io/actions/runs/39078194480",
+  "catalog_audit_runs": [
+    "https://github.com/spareteam/morefatter.github.io/actions/runs/39078194480",
+    "https://github.com/spareteam/morefatter.github.io/actions/runs/39078330493",
+    "https://github.com/spareteam/morefatter.github.io/actions/runs/39078484855",
+    "https://github.com/spareteam/morefatter.github.io/actions/runs/39078528366"
+  ],
+  "remaining_unverified": [
+    {
+      "release": "Fat Haus EP",
+      "service": "YouTube Music",
+      "evidence": "Exact artist/title album search found no matching EP. Broader fat haus album search returned other artists. Public More Fatter artist albums and complete EP/singles catalog do not list fat haus. Exact Girl Scout Cookies song search matches the same artist and 3:38 recording but album lookup resolves its separate 2020 single, not the 2023 four-track EP. I Don’t Want To exact artist/title song search did not return a More Fatter match. Playlist search returned an official Band Vlogs playlist and unrelated user playlists, not an EP playlist. No exact four-track EP destination could be verified; do not substitute an unrelated single, fabricate a playlist, or claim the EP is definitively unavailable."
+    }
+  ]
+}
