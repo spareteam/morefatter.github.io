@@ -636,16 +636,26 @@ test('Signup validates email and hands it to the configured Mailchimp form witho
   } finally { await context.close(); }
 });
 
-test('Signup fits small screens with an accessible form and still works when local storage is unavailable', async t => {
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 320, height: 568 }, { width: 844, height: 390 }]) {
+test('Signup fits between the site controls with an accessible form even when local storage is unavailable', async t => {
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 },
+    { width: 768, height: 600 }, { width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }]) {
     await t.test(`${viewport.width}×${viewport.height}`, async () => {
       const { page, context, errors } = await openPage({ viewport, query: '?signup=1', storageUnavailable: true, reducedMotion: 'reduce' });
       try {
         const dialog = page.locator('#signup-dialog');
         const bounds = await dialog.boundingBox();
         assert(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width && bounds.y + bounds.height <= viewport.height);
+        assert(Math.abs(bounds.x + bounds.width / 2 - viewport.width / 2) < 1, 'The signup should be horizontally centered');
+        for (const selector of ['body > header', '.nav', '.socials', 'footer', '.motion']) {
+          const control = await page.locator(selector).boundingBox();
+          const overlaps = bounds.x < control.x + control.width && bounds.x + bounds.width > control.x &&
+            bounds.y < control.y + control.height && bounds.y + bounds.height > control.y;
+          assert.equal(overlaps, false, `The signup must leave ${selector} uncovered`);
+        }
         const email = await dialog.getByLabel('Your email address').boundingBox();
         assert(email.y >= bounds.y && email.y + email.height <= bounds.y + bounds.height);
+        const submit = await dialog.getByRole('button', { name: 'Continue to Mailchimp' }).boundingBox();
+        assert(submit.y >= bounds.y && submit.y + submit.height <= bounds.y + bounds.height);
         const note = dialog.locator('.signup-copy');
         await dialog.locator('.signup-signoff').scrollIntoViewIfNeeded();
         const signoff = await dialog.locator('.signup-signoff').boundingBox();
@@ -653,6 +663,9 @@ test('Signup fits small screens with an accessible form and still works when loc
         assert(signoff.y + signoff.height <= copy.y + copy.height + 1);
         await page.keyboard.press('Escape');
         assert.equal(await dialog.isVisible(), false);
+        await choose(page, 'shop');
+        const shop = await page.locator('#shop').boundingBox();
+        assert(Math.abs(bounds.width - shop.width) < 1, 'The signup should use the Shop popup width');
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });

@@ -42,7 +42,7 @@
 @media(max-width:700px){#shop{left:22px;right:22px;width:auto}}
 
 /* Mailing-list invitation. */
-.signup-dialog{width:min(600px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100svh - 32px);margin:auto;padding:0;overflow:hidden;border:1px solid #ffffff60;background:#0b0b0bf5;color:#fff;text-align:left}
+.signup-dialog{inset:120px 0 130px;width:min(640px,48vw);max-width:calc(100vw - 44px);max-height:min(560px,calc(100svh - 250px));margin:auto;padding:0;overflow:hidden;border:1px solid #ffffff60;background:#0b0b0bf5;color:#fff;text-align:left}
 .signup-dialog[open]{display:flex;flex-direction:column;animation:enter .25s ease both}
 .signup-dialog::backdrop{background:#0008}
 .signup-dialog .signup-header{position:relative;top:auto;left:auto;transform:none;z-index:auto;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 28px 16px;white-space:normal}
@@ -63,4 +63,6 @@
 .signup-provider,.signup-status{margin:10px 0 0;font-size:12px;line-height:1.4}
 .signup-provider{color:#ffffffb3}
 .signup-status:empty{display:none}
-@media(max-width:700px){.signup-dialog .signup-header{padding:18px 18px 12px}.signup-header h2{font-size:clamp(24px,7.2vw,30px)}.signup-copy{padding:0 18px 4px}.signup-form{padding:14px 18px 18px}.signup-fields{flex-direction:column;gap:12px}.signup-fields button{align-self:flex-start}}
+@media(max-width:700px){.signup-dialog{inset:150px 22px 155px;width:auto;max-height:calc(100svh - 305px)}.signup-dialog .signup-header{padding:18px 18px 12px}.signup-header h2{font-size:clamp(24px,7.2vw,30px)}.signup-copy{padding:0 18px 4px}.signup-form{padding:14px 18px 18px}.signup-fields{flex-direction:column;gap:12px}.signup-fields button{align-self:flex-start}}
+@media(max-height:700px){.signup-dialog .signup-header{padding:8px 18px}.signup-header h2{font-size:28px}.signup-form{padding:10px 18px}.signup-form label{margin-bottom:4px}.signup-fields{gap:6px}.signup-provider{display:none}.signup-status{margin-top:6px}}
+@media(min-width:701px) and (max-height:600px){.signup-dialog{inset:100px 0 80px;max-height:calc(100svh - 180px)}}
