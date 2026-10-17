@@ -1,0 +1,31 @@
+name: Audit public release catalogs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: write
+    steps:
+      - name: Get website
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install public YouTube Music catalog reader
+        run: python3 -m pip install --disable-pip-version-check ytmusicapi==1.11.1
+      - name: Read public release metadata
+        run: python3 scripts/catalog-audit.py
+      - name: Save public catalog report on a review branch
+        env:
+          AUDIT_BRANCH: codex/catalog-audit-${{ github.run_id }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$AUDIT_BRANCH"
+          git add catalog-audit-report.json
+          git commit -m 'Record public More Fatter catalog metadata [skip ci]'
+          git push origin "$AUDIT_BRANCH"
