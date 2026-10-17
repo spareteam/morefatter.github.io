@@ -40,3 +40,27 @@
 .join .signup-join{font-size:12px;line-height:normal;border:1px solid #fff;padding:3px 6px}
 @media(max-width:700px){.media .cover{width:min(100%,42svh,var(--media-limit,10000px))}.join .signup-line{width:130px}}
 @media(max-width:700px){#shop{left:22px;right:22px;width:auto}}
+
+/* Mailing-list invitation. */
+.signup-dialog{width:min(600px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100svh - 32px);margin:auto;padding:0;overflow:hidden;border:1px solid #ffffff60;background:#0b0b0bf5;color:#fff;text-align:left}
+.signup-dialog[open]{display:flex;flex-direction:column;animation:enter .25s ease both}
+.signup-dialog::backdrop{background:#0008}
+.signup-dialog .signup-header{position:relative;top:auto;left:auto;transform:none;z-index:auto;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 28px 16px;white-space:normal}
+.signup-header h2{margin:0;font-family:Advert,Georgia,serif;font-size:36px;font-weight:400;line-height:1.2}
+.signup-header h2:focus{outline:none}
+.signup-close{flex-shrink:0;width:40px;height:40px;border:1px solid #ffffff50;border-radius:50%;background:none;color:inherit;font-size:26px;line-height:1}
+.signup-copy{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 28px 8px;font-size:14px;line-height:1.55}
+.signup-copy p{margin:0 0 16px}
+.signup-copy ol{margin:0 0 16px;padding-left:22px}
+.signup-copy li{padding-left:3px;margin:0 0 7px}
+.signup-signoff{line-height:1.6}
+.signup-form{flex-shrink:0;border-top:1px solid #ffffff35;padding:18px 28px 22px}
+.signup-form label{display:block;margin-bottom:8px;font-size:13px}
+.signup-fields{display:flex;gap:10px}
+.signup-fields input{flex:1;min-width:0;width:100%;min-height:44px;padding:10px 0;border:0;border-bottom:1px solid #fff;border-radius:0;background:transparent;color:#fff;font:inherit}
+.signup-fields button{min-height:44px;padding:10px 14px;border:1px solid #fff;background:transparent;color:inherit;font-size:13px}
+.signup-fields button:hover{background:#ffffff15}
+.signup-provider,.signup-status{margin:10px 0 0;font-size:12px;line-height:1.4}
+.signup-provider{color:#ffffffb3}
+.signup-status:empty{display:none}
+@media(max-width:700px){.signup-dialog .signup-header{padding:18px 18px 12px}.signup-header h2{font-size:clamp(24px,7.2vw,30px)}.signup-copy{padding:0 18px 4px}.signup-form{padding:14px 18px 18px}.signup-fields{flex-direction:column;gap:12px}.signup-fields button{align-self:flex-start}}

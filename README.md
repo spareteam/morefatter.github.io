@@ -28,7 +28,7 @@ GitHub Pages publishing is active. Browser checks compare the shared header, nav
 - Music and video carousels are vertically centered with lighter titles; the shop uses a narrower centered panel
 - Carousel content fits or scrolls within the original panels on small and landscape screens
 - Background video stays unloaded for reduced-motion/data-saving preferences; playback pauses while the tab is hidden or a video player is open
-- Original JOIN control opens the band's real Mailchimp subscription form
+- Delayed mailing-list invitation with the band's note, email field, and Mailchimp handoff; JOIN can reopen it
 
 ## Editing
 `index.html` contains content in the `site-data` JSON block; `content.json` is its readable reference copy. Update both when changing releases or videos. Styles are in `style.css`; interactions in `app.js`.
@@ -44,6 +44,8 @@ Run `python3 scripts/audit-music-links.py` to compare direct destinations agains
 ## Service dependencies
 The original video, artwork, font and social images remain on the existing Webflow and Feature.fm CDNs. YouTube, Songkick and Shopify remain external services. Music service choices are stored locally and no longer load Feature.fm widgets. Preserve external media or migrate it before cancelling the original hosting. The Shopify Storefront token in shop.js is the public browser token used by the original site, not an admin credential.
 
-The mailing-list button opens the band's real Mailchimp signup form at https://mailchi.mp/e55a52839a47/mf. Fans enter their email and complete any confirmation on Mailchimp; the website does not collect an address separately or claim a subscription has succeeded. No private mailing-list credentials are stored in this repository.
+The mailing-list invitation appears after 12 seconds on the first or second visit, when the visitor is on the home screen and the tab is visible. It defers while any site panel is open. A new visit begins after a gap of 30 minutes; reloading during the same visit does not count as another visit. An automatic invitation is shown at most once per visit. Dismissal or continuing to Mailchimp suppresses future automatic prompts in that browser. JOIN always opens the dialog manually, and `?signup=1` provides an immediate review link. Modal focus, Escape dismissal, media suspension, and a scrollable note with a visible email form work on desktop and small screens. Only visit/dismissal/handoff flags are saved in local storage; email addresses are not stored there.
+
+The current form opens the band's existing public Mailchimp page at https://mailchi.mp/e55a52839a47/mf, passing the address in an `EMAIL` query parameter. This is a hosted-form handoff, not a confirmed subscription. The cloud proxy denied reading that page, so its handling of the prefill parameter and actual subscription endpoint have not been verified. `mailchi.mp` was added to the saved network-access draft for review and environment publication. Once access is applied or the band's public embedded-form HTML is available, replace the form action with its exact `https://…list-manage.com/subscribe/post?...` endpoint, set method to POST, and preserve any required hidden fields from Mailchimp. Native form navigation lets Mailchimp handle CAPTCHA, validation, and confirmation without exposing an API key or claiming success from an unreadable cross-origin response. No private mailing-list credentials are stored in this repository.
 
 No custom domain is configured, so this does not change morefatter.band or its DNS.

@@ -40,8 +40,14 @@ after(async () => {
 });
 
 async function openPage(options = {}) {
-  const { saveData, clock = false, ...contextOptions } = options;
+  const { saveData, clock = false, signupState, storageUnavailable, query = '', ...contextOptions } = options;
   const context = await browser.newContext(contextOptions);
+  if (signupState) await context.addInitScript(state => {
+    localStorage.setItem('morefatter:signup:v1', JSON.stringify(state));
+  }, signupState);
+  if (storageUnavailable) await context.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Storage unavailable', 'SecurityError'); } });
+  });
   if (saveData) await context.addInitScript(() => Object.defineProperty(navigator, 'connection', {
     value: { saveData: true, addEventListener() {} },
   }));
@@ -53,7 +59,7 @@ async function openPage(options = {}) {
     const request = route.request();
     const url = new URL(request.url());
     if (url.origin === origin) return route.continue();
-    requests.push({ url: url.href, type: request.resourceType() });
+    requests.push({ url: url.href, type: request.resourceType(), method: request.method(), body: request.postData() });
     if (url.pathname.endsWith('.mp4')) return route.fulfill({ path: fixture, contentType: 'video/webm' });
     if (request.resourceType() === 'image') return route.fulfill({ body: image, contentType: 'image/png' });
     if (request.resourceType() === 'document') return route.fulfill({
@@ -62,7 +68,7 @@ async function openPage(options = {}) {
     return route.abort();
   });
   if (clock) await page.clock.install();
-  await page.goto(origin, { waitUntil: 'networkidle' });
+  await page.goto(origin + query, { waitUntil: 'networkidle' });
   return { page, context, requests, errors };
 }
 
@@ -490,17 +496,14 @@ test('Hiding the tab suspends rotation and background playback', async () => {
   } finally { await context.close(); }
 });
 
-test('The original JOIN control opens Mailchimp and browser navigation stays in sync', async () => {
+test('The original JOIN control opens signup and browser navigation stays in sync', async () => {
   const { page, context } = await openPage({ reducedMotion: 'reduce' });
   try {
     const signup = page.getByRole('link', { name: 'Join the mailing list', exact: true });
     assert.equal(await signup.getAttribute('href'), 'https://mailchi.mp/e55a52839a47/mf');
-    const popupPromise = page.waitForEvent('popup');
     await signup.click();
-    const popup = await popupPromise;
-    await popup.waitForLoadState('domcontentloaded');
-    assert.equal(popup.url(), 'https://mailchi.mp/e55a52839a47/mf');
-    await popup.close();
+    assert.equal(await page.locator('#signup-dialog').isVisible(), true);
+    await page.getByRole('button', { name: 'Close mailing list signup' }).click();
     await choose(page, 'music');
     await choose(page, 'video');
     await page.goBack();
@@ -511,4 +514,147 @@ test('The original JOIN control opens Mailchimp and browser navigation stays in 
     assert.equal(await page.locator('#video').isVisible(), false);
     assert.equal(await page.locator('[data-panel="video"]').evaluate(button => button === document.activeElement), true);
   } finally { await context.close(); }
+});
+
+test('Signup appears after twelve seconds, shows the band note, and remembers dismissal across reloads', async () => {
+  const { page, context, errors } = await openPage({ clock: true });
+  try {
+    await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
+    await page.clock.fastForward(10000);
+    assert.equal(await page.locator('#signup-dialog').isVisible(), false);
+    await page.clock.fastForward(2500);
+    const dialog = page.getByRole('dialog', { name: 'Hello visitor,' });
+    assert.equal(await dialog.isVisible(), true);
+    assert.equal(await dialog.evaluate(node => node.matches(':modal')), true);
+    assert.equal(await dialog.locator('ol li').count(), 5);
+    assert((await dialog.innerText()).includes('We will always love you and cherish you.'));
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    await dialog.getByRole('button', { name: 'Close mailing list signup' }).click();
+    await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.clock.fastForward(30000);
+    assert.equal(await dialog.isVisible(), false);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('morefatter:signup:v1')).visits), 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Automatic signup waits for panels and hidden tabs, and keyboard dismissal preserves the active panel', async () => {
+  const { page, context } = await openPage({ clock: true });
+  try {
+    await choose(page, 'music');
+    await page.clock.fastForward(15000);
+    assert.equal(await page.locator('#signup-dialog').isVisible(), false);
+    await page.locator('#music > .close').click();
+    assert.equal(await page.locator('#signup-dialog').isVisible(), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#signup-dialog').isVisible(), false);
+    await choose(page, 'music');
+    const selected = await index(page, 'music');
+    await page.locator('.join').click();
+    await page.clock.fastForward(15000);
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await index(page, 'music'), selected);
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('#signup-dialog').evaluate(dialog => dialog.contains(document.activeElement)), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#music').isVisible(), true);
+    assert.equal(await page.locator('.join').evaluate(node => node === document.activeElement), true);
+    await page.clock.fastForward(3100);
+    assert.equal(await index(page, 'music'), (selected + 1) % releases.length);
+  } finally { await context.close(); }
+  const hidden = await openPage({ clock: true });
+  try {
+    await hidden.page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await hidden.page.clock.fastForward(15000);
+    assert.equal(await hidden.page.locator('#signup-dialog').isVisible(), false);
+    await hidden.page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    assert.equal(await hidden.page.locator('#signup-dialog').isVisible(), true);
+  } finally { await hidden.context.close(); }
+});
+
+test('Signup can appear on a second visit but not a third, after handoff, or twice in the same visit', async () => {
+  const old = Date.now() - 31 * 60 * 1000;
+  for (const [signupState, expected] of [
+    [{ visits: 1, lastVisitAt: old, shownVisit: 1 }, true],
+    [{ visits: 2, lastVisitAt: old, shownVisit: 2 }, false],
+    [{ visits: 1, lastVisitAt: old, continued: true }, false],
+    [{ visits: 1, lastVisitAt: Date.now(), shownVisit: 1 }, false],
+  ]) {
+    const { page, context } = await openPage({ signupState, clock: true });
+    try {
+      await page.clock.fastForward(15000);
+      assert.equal(await page.locator('#signup-dialog').isVisible(), expected);
+    } finally { await context.close(); }
+  }
+});
+
+test('Signup validates email and hands it to the configured Mailchimp form without claiming a subscription', async () => {
+  const { page, context, requests, errors } = await openPage({ clock: true });
+  try {
+    await page.locator('.join').click();
+    const dialog = page.locator('#signup-dialog');
+    const email = dialog.getByLabel('Your email address');
+    const submit = dialog.locator('button[type="submit"]');
+    await submit.click();
+    assert.equal(await email.evaluate(node => node.validity.valueMissing), true);
+    await email.fill('not-an-email');
+    await submit.click();
+    assert.equal(await email.evaluate(node => node.validity.typeMismatch), true);
+    assert.equal(requests.filter(request => request.type === 'document').length, 0);
+    const address = 'fan@example.test';
+    await email.fill(address);
+    const form = dialog.locator('form');
+    const action = await form.getAttribute('action');
+    const method = (await form.getAttribute('method')).toUpperCase();
+    const popupPromise = page.waitForEvent('popup');
+    await submit.click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState('domcontentloaded');
+    const request = requests.find(request => request.type === 'document');
+    assert.equal(request.method, method);
+    const destination = new URL(request.url);
+    assert.equal(destination.origin + destination.pathname, new URL(action).origin + new URL(action).pathname);
+    const fields = method === 'POST' ? new URLSearchParams(request.body) : destination.searchParams;
+    assert.equal(fields.get('EMAIL'), address);
+    assert((await dialog.locator('[role="status"]').innerText()).includes('Finish signing up'));
+    const saved = await page.evaluate(() => localStorage.getItem('morefatter:signup:v1'));
+    assert.equal(JSON.parse(saved).continued, true);
+    assert.equal(saved.includes(address), false, 'The email must not be persisted in local storage');
+    await popup.close();
+    await dialog.getByRole('button', { name: 'Close mailing list signup' }).click();
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.clock.fastForward(30000);
+    assert.equal(await dialog.isVisible(), false);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Signup fits small screens with an accessible form and still works when local storage is unavailable', async t => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 320, height: 568 }, { width: 844, height: 390 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context, errors } = await openPage({ viewport, query: '?signup=1', storageUnavailable: true, reducedMotion: 'reduce' });
+      try {
+        const dialog = page.locator('#signup-dialog');
+        const bounds = await dialog.boundingBox();
+        assert(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width && bounds.y + bounds.height <= viewport.height);
+        const email = await dialog.getByLabel('Your email address').boundingBox();
+        assert(email.y >= bounds.y && email.y + email.height <= bounds.y + bounds.height);
+        const note = dialog.locator('.signup-copy');
+        await dialog.locator('.signup-signoff').scrollIntoViewIfNeeded();
+        const signoff = await dialog.locator('.signup-signoff').boundingBox();
+        const copy = await note.boundingBox();
+        assert(signoff.y + signoff.height <= copy.y + copy.height + 1);
+        await page.keyboard.press('Escape');
+        assert.equal(await dialog.isVisible(), false);
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+  }
 });

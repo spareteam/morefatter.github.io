@@ -10,6 +10,8 @@ let current = null;
 let keyboardMode = false;
 let shopLoaded = false;
 let tourLoaded = false;
+let signupOpen = false;
+let signupController = null;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -39,7 +41,7 @@ function scheduleRotation(kind) {
   clearRotation(state);
   const focusedSlide = keyboardMode && state.cells[state.physical]?.slide.contains(document.activeElement);
   if (current !== kind || state.paused || state.playerOpen || state.streamingOpen || state.gesture ||
-      document.hidden || focusedSlide) return;
+      document.hidden || signupOpen || focusedSlide) return;
   state.timer = setTimeout(() => goTo(kind, state.index + 1, { automatic: true, direction: 1 }), ROTATION_DELAY);
 }
 
@@ -416,11 +418,13 @@ function showPanel(name, { updateHistory = true, restoreFocus = false } = {}) {
   }
   if (restoreFocus) nav.find(item => item.dataset.panel === previous)?.focus({ preventScroll: true });
   updateBackground();
+  if (!current) signupController?.offer();
 }
 
 document.addEventListener('pointerdown', () => { keyboardMode = false; }, true);
 document.addEventListener('keydown', event => {
   keyboardMode = true;
+  if (signupOpen) return;
   if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
   if (event.key === 'Escape' && current === 'music' && carousels.music.streamingOpen) {
     event.preventDefault();
@@ -453,13 +457,14 @@ let backgroundRequested = !reducedMotion.matches && !connection?.saveData;
 function updateMotion() {
   motion.textContent = background.paused ? 'Play background' : 'Pause background';
   motion.setAttribute('aria-pressed', String(!background.paused));
-  motion.disabled = Object.values(carousels).some(state => state.playerOpen);
-  motion.title = motion.disabled ? 'Resume the slideshow to resume the background.' : '';
+  motion.disabled = signupOpen || Object.values(carousels).some(state => state.playerOpen);
+  motion.title = signupOpen ? 'Close signup to resume the background.'
+    : motion.disabled ? 'Resume the slideshow to resume the background.' : '';
 }
 
 function updateBackground() {
   const playerOpen = Object.values(carousels).some(state => state.playerOpen);
-  const shouldPlay = backgroundRequested && !document.hidden && !playerOpen;
+  const shouldPlay = backgroundRequested && !document.hidden && !playerOpen && !signupOpen;
   if (!shouldPlay) background.pause();
   else if (background.paused) {
     if (!background.getAttribute('src')) { background.src = data.video; background.load(); }
@@ -487,6 +492,112 @@ function updatePreferences() {
 reducedMotion.addEventListener('change', updatePreferences);
 connection?.addEventListener('change', updatePreferences);
 
+function installSignup() {
+  const dialog = document.querySelector('#signup-dialog');
+  if (!dialog || typeof dialog.showModal !== 'function') return null;
+  const form = dialog.querySelector('form');
+  const status = dialog.querySelector('[role="status"]');
+  const storageKey = 'morefatter:signup:v1';
+  const visitWindow = 30 * 60 * 1000;
+  const delay = 12000;
+  let ready = false;
+  let previousFocus = null;
+  let timer = null;
+
+  function readState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey));
+      return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+    } catch { return {}; }
+  }
+  let state = readState();
+  const now = Date.now();
+  const previousVisit = Number(state.lastVisitAt) || 0;
+  const visits = Number.isFinite(state.visits) ? Math.max(0, state.visits) : 0;
+  state.visits = !visits || now - previousVisit >= visitWindow ? visits + 1 : visits;
+  state.lastVisitAt = now;
+  function remember(update = {}) {
+    state = { ...readState(), ...state, ...update };
+    try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch { /* Storage can be unavailable in private browsers. */ }
+  }
+  remember();
+
+  function eligible() {
+    const saved = readState();
+    return !state.dismissed && !state.continued && !saved.dismissed && !saved.continued &&
+      state.visits <= 2 && state.shownVisit !== state.visits && saved.shownVisit !== state.visits;
+  }
+
+  function show(source = 'manual') {
+    if (signupOpen) return;
+    clearTimeout(timer);
+    previousFocus = document.activeElement;
+    signupOpen = true;
+    status.textContent = '';
+    dialog.dataset.source = source;
+    if (source === 'automatic') remember({ shownVisit: state.visits });
+    for (const [kind, carousel] of Object.entries(carousels)) {
+      clearRotation(carousel);
+      finishTransition(kind);
+    }
+    dialog.showModal();
+    dialog.querySelector('#signup-heading').focus({ preventScroll: true });
+    updateBackground();
+  }
+
+  function offer() {
+    if (ready && eligible() && !signupOpen && !current && !document.hidden) show('automatic');
+  }
+
+  function finishClose() {
+    if (!signupOpen || dialog.open) return;
+    signupOpen = false;
+    remember({ dismissed: true });
+    const target = previousFocus?.isConnected && !previousFocus.closest('[hidden]')
+      ? previousFocus : document.querySelector('.wordmark');
+    target.focus({ preventScroll: true });
+    updateBackground();
+    for (const kind of Object.keys(carousels)) scheduleRotation(kind);
+  }
+  function dismiss() {
+    dialog.close();
+    finishClose();
+  }
+  dialog.querySelector('.signup-close').addEventListener('click', dismiss);
+  dialog.addEventListener('cancel', event => {
+    event.preventDefault();
+    dismiss();
+  });
+  dialog.addEventListener('close', finishClose);
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const bounds = dialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom) dismiss();
+  });
+  form.addEventListener('submit', () => {
+    // Native navigation lets Mailchimp display validation, CAPTCHA, or confirmation.
+    // Keep the email in the form until the browser has serialized its submission.
+    remember({ continued: true });
+    clearTimeout(timer);
+    status.textContent = 'Finish signing up in the Mailchimp tab that opens.';
+  });
+  document.querySelector('.join').addEventListener('click', event => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    show();
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) offer(); });
+  window.addEventListener('storage', event => {
+    if (event.key === storageKey && !eligible()) clearTimeout(timer);
+  });
+
+  if (new URLSearchParams(location.search).get('signup') === '1') show('preview');
+  else if (eligible()) timer = setTimeout(() => { ready = true; offer(); }, delay);
+  return { offer };
+}
+
 createCarousel('music');
 createCarousel('video');
 showPanel(panelFromLocation(), { updateHistory: false });
+signupController = installSignup();

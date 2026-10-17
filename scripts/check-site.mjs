@@ -34,6 +34,15 @@ for (const release of data.music) {
   }
 }
 
+const signup = html.match(/<form\b(?=[^>]*\bid="signup-form")([^>]*)>/i);
+assert(signup, 'The signup dialog needs its Mailchimp form.');
+const action = signup[1].match(/\baction="([^"]+)"/i)?.[1];
+const destination = new URL(action?.replaceAll('&amp;', '&'));
+assert(destination.protocol === 'https:' && (destination.hostname === 'mailchi.mp' ||
+  /\.list-manage\d?\.com$/.test(destination.hostname)), 'Signup must use a public HTTPS Mailchimp form.');
+assert(/name="EMAIL"[^>]*type="email"/.test(html), 'Signup needs its named email field.');
+assert(/\btarget="_blank"/.test(signup[1]), 'Mailchimp must be able to show confirmation or validation in a new tab.');
+
 const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)].map(match => match[1]);
 references.push('shop.js', '.nojekyll');
 for (const reference of references) {
