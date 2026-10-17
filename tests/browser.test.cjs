@@ -94,7 +94,7 @@ function activePreview(page, kind) {
 async function styleSnapshot(page) {
   return page.evaluate(() => {
     const selectors = ['header', '.wordmark', '.nav', '.nav button', '.socials', '.socials img',
-      'footer', '.join', '.footer-image', '.footer-image.spotify', '.motion'];
+      'footer', '.join', '.footer-image', '.motion'];
     const properties = ['position', 'fontFamily', 'fontSize', 'fontWeight', 'color', 'backgroundColor',
       'borderRadius', 'paddingTop', 'paddingLeft', 'gap'];
     return Object.fromEntries(selectors.map(selector => {
@@ -118,6 +118,64 @@ test('Approved baseline typography, colors, controls and layout are preserved', 
       } finally { await context.close(); }
     });
   }
+});
+
+test('White social links include the official TikTok and Spotify, with no green footer Spotify badge', async t => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024 },
+    { width: 600, height: 800 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+    await t.test(`${viewport.width}×${viewport.height}`, async () => {
+      const { page, context, errors } = await openPage({ viewport, reducedMotion: 'reduce' });
+      try {
+        const socials = page.locator('.socials');
+        assert.equal(await socials.locator('a').count(), 5);
+        assert.equal(await page.locator('footer .spotify').count(), 0);
+        assert.equal(await socials.getByRole('link', { name: 'Spotify', exact: true }).count(), 1);
+        const tiktok = socials.getByRole('link', { name: 'TikTok', exact: true });
+        assert.equal(await tiktok.getAttribute('href'), 'https://www.tiktok.com/@morefatterofficial');
+        assert.equal(await tiktok.getAttribute('target'), '_blank');
+        assert.equal(await tiktok.locator('img').evaluate(image => image.complete && image.naturalWidth > 0), true);
+        const bounds = await socials.boundingBox();
+        assert(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width && bounds.y + bounds.height <= viewport.height);
+        const title = await page.locator('.wordmark').boundingBox();
+        const nav = await page.locator('.nav').boundingBox();
+        if (viewport.width <= 700) {
+          assert(title.y < 22 && title.width < 330, 'The mobile title should sit higher and be smaller');
+          assert(title.y + title.height < nav.y, 'The title must leave mobile navigation clear');
+        }
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+  }
+});
+
+test('Mobile background autoplays muted inline without a tap and preserves intentional pause', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, clock: true });
+  try {
+    await page.waitForFunction(() => {
+      const video = document.querySelector('.backdrop');
+      return !video.paused && video.readyState >= 2 && video.videoWidth > 0;
+    });
+    assert.deepEqual(await page.locator('.backdrop').evaluate(video =>
+      [video.muted, video.defaultMuted, video.playsInline, video.autoplay]), [true, true, true, true]);
+    await page.locator('.motion').click();
+    await choose(page, 'music');
+    await page.locator('#music > .close').click();
+    await page.locator('.join').click();
+    await page.locator('#signup-dialog .signup-close').click();
+    await page.evaluate(() => {
+      for (const hidden of [true, false]) {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: hidden });
+        document.dispatchEvent(new Event('visibilitychange'));
+      }
+      window.dispatchEvent(new Event('pageshow'));
+      document.querySelector('.backdrop').dispatchEvent(new Event('canplay'));
+    });
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    assert.equal(await page.locator('.motion').textContent(), 'Play background');
+    await page.locator('.motion').click();
+    await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
 });
 
 test('Owned artwork, logos, font and background video work without third-party media requests', async () => {
@@ -443,9 +501,11 @@ test('Every music cover and title opens services in place, pauses rotation, and 
     for (let selected = 0; selected < releases.length; selected++) {
       const release = releases[selected];
       await page.locator('#music .dot').nth(selected).click();
+      // Let the slide transition finish under the test clock before checking its contents.
+      await page.clock.runFor(450);
       await activePreview(page, 'music').click();
       const options = page.getByRole('group', { name: `Streaming options for ${release.title}`, exact: true });
-      assert.equal(await options.isVisible(), true);
+      assert.equal(await options.isVisible(), true, `${release.title} must show its streaming choices`);
       assert.equal(await page.locator('iframe').count(), 0);
       assert.equal(externalDocuments(), initialDocuments, 'Choosing a release must not load another page or widget');
       assert.equal(context.pages().length, 1);
@@ -750,38 +810,27 @@ test('Signup can appear on a second visit but not a third, after handoff, or twi
   }
 });
 
-test('Signup validates email and hands it to the configured Mailchimp form without claiming a subscription', async () => {
+test('Signup opens Mailchimp in one click without requesting or passing an email address', async () => {
   const { page, context, requests, errors } = await openPage({ clock: true });
   try {
     await page.locator('.join').click();
     const dialog = page.locator('#signup-dialog');
-    const email = dialog.getByLabel('Your email address');
-    const submit = dialog.locator('button[type="submit"]');
-    await submit.click();
-    assert.equal(await email.evaluate(node => node.validity.valueMissing), true);
-    await email.fill('not-an-email');
-    await submit.click();
-    assert.equal(await email.evaluate(node => node.validity.typeMismatch), true);
+    assert.equal(await dialog.locator('input').count(), 0);
+    const submit = dialog.getByRole('link', { name: 'Continue to Mailchimp', exact: true });
     assert.equal(requests.filter(request => request.type === 'document' && !request.url.startsWith(origin)).length, 0);
-    const address = 'fan@example.test';
-    await email.fill(address);
-    const form = dialog.locator('form');
-    const action = await form.getAttribute('action');
-    const method = (await form.getAttribute('method')).toUpperCase();
+    const action = await submit.getAttribute('href');
     const popupPromise = page.waitForEvent('popup');
     await submit.click();
     const popup = await popupPromise;
     await popup.waitForLoadState('domcontentloaded');
     const request = requests.find(request => request.type === 'document' && !request.url.startsWith(origin));
-    assert.equal(request.method, method);
+    assert.equal(request.method, 'GET');
     const destination = new URL(request.url);
     assert.equal(destination.origin + destination.pathname, new URL(action).origin + new URL(action).pathname);
-    const fields = method === 'POST' ? new URLSearchParams(request.body) : destination.searchParams;
-    assert.equal(fields.get('EMAIL'), address);
-    assert((await dialog.locator('[role="status"]').innerText()).includes('Finish signing up'));
+    assert.equal(destination.search, '');
+    assert.equal(request.body, null);
     const saved = await page.evaluate(() => localStorage.getItem('morefatter:signup:v1'));
     assert.equal(JSON.parse(saved).continued, true);
-    assert.equal(saved.includes(address), false, 'The email must not be persisted in local storage');
     await popup.close();
     await dialog.getByRole('button', { name: 'Close mailing list signup' }).click();
     await page.reload({ waitUntil: 'networkidle' });
@@ -791,7 +840,7 @@ test('Signup validates email and hands it to the configured Mailchimp form witho
   } finally { await context.close(); }
 });
 
-test('Signup fits between the site controls with an accessible form even when local storage is unavailable', async t => {
+test('Signup fits between the site controls with a reachable Mailchimp button even when local storage is unavailable', async t => {
   for (const viewport of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 },
     { width: 768, height: 600 }, { width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }]) {
     await t.test(`${viewport.width}×${viewport.height}`, async () => {
@@ -807,9 +856,7 @@ test('Signup fits between the site controls with an accessible form even when lo
             bounds.y < control.y + control.height && bounds.y + bounds.height > control.y;
           assert.equal(overlaps, false, `The signup must leave ${selector} uncovered`);
         }
-        const email = await dialog.getByLabel('Your email address').boundingBox();
-        assert(email.y >= bounds.y && email.y + email.height <= bounds.y + bounds.height);
-        const submit = await dialog.getByRole('button', { name: 'Continue to Mailchimp' }).boundingBox();
+        const submit = await dialog.getByRole('link', { name: 'Continue to Mailchimp' }).boundingBox();
         assert(submit.y >= bounds.y && submit.y + submit.height <= bounds.y + bounds.height);
         const note = dialog.locator('.signup-copy');
         assert.deepEqual(await note.evaluate(element => {

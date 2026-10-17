@@ -60,14 +60,15 @@ for (const release of data.music) {
   }
 }
 
-const signup = html.match(/<form\b(?=[^>]*\bid="signup-form")([^>]*)>/i);
-assert(signup, 'The signup dialog needs its Mailchimp form.');
-const action = signup[1].match(/\baction="([^"]+)"/i)?.[1];
+const signup = html.match(/<a\b(?=[^>]*\bclass="signup-continue")([^>]*)>/i);
+assert(signup, 'The signup dialog needs its direct Mailchimp button.');
+const action = signup[1].match(/\bhref="([^"]+)"/i)?.[1];
 const destination = new URL(action?.replaceAll('&amp;', '&'));
 assert(destination.protocol === 'https:' && (destination.hostname === 'mailchi.mp' ||
   /\.list-manage\d?\.com$/.test(destination.hostname)), 'Signup must use a public HTTPS Mailchimp form.');
-assert(/name="EMAIL"[^>]*type="email"/.test(html), 'Signup needs its named email field.');
-assert(/\btarget="_blank"/.test(signup[1]), 'Mailchimp must be able to show confirmation or validation in a new tab.');
+const dialog = html.match(/<dialog\b[^>]*id="signup-dialog"[\s\S]*?<\/dialog>/i)?.[0];
+assert(dialog && !/<input\b/i.test(dialog), 'The signup popup must not ask for an email before opening Mailchimp.');
+assert(/\btarget="_blank"/.test(signup[1]), 'The Mailchimp page must open in a new tab.');
 
 const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)].map(match => match[1]);
 references.push('shop.js', '.nojekyll');

@@ -453,6 +453,11 @@ window.addEventListener('resize', () => { if (carousels[current]) { finishTransi
 
 const background = document.querySelector('.backdrop');
 const motion = document.querySelector('.motion');
+// Set the properties before assigning a source; mobile WebKit checks both mute states.
+background.muted = true;
+background.defaultMuted = true;
+background.playsInline = true;
+background.autoplay = true;
 let backgroundRequested = !reducedMotion.matches && !connection?.saveData;
 
 function updateMotion() {
@@ -474,9 +479,11 @@ function updateBackground() {
   updateMotion();
   updateBrandAnimations();
 }
-background.addEventListener('play', updateMotion);
+background.addEventListener('play', updateBackground);
 background.addEventListener('pause', updateMotion);
 background.addEventListener('error', updateMotion);
+background.addEventListener('canplay', updateBackground);
+window.addEventListener('pageshow', updateBackground);
 motion.addEventListener('click', () => {
   backgroundRequested = background.paused;
   if (backgroundRequested && background.error) background.load();
@@ -531,8 +538,7 @@ function installBrandAnimations() {
 function installSignup() {
   const dialog = document.querySelector('#signup-dialog');
   if (!dialog || typeof dialog.showModal !== 'function') return null;
-  const form = dialog.querySelector('form');
-  const status = dialog.querySelector('[role="status"]');
+  const continueLink = dialog.querySelector('.signup-continue');
   const storageKey = 'morefatter:signup:v1';
   const visitWindow = 30 * 60 * 1000;
   const delay = 12000;
@@ -569,7 +575,6 @@ function installSignup() {
     clearTimeout(timer);
     previousFocus = document.activeElement;
     signupOpen = true;
-    status.textContent = '';
     dialog.dataset.source = source;
     if (source === 'automatic') remember({ shownVisit: state.visits });
     for (const [kind, carousel] of Object.entries(carousels)) {
@@ -611,12 +616,10 @@ function installSignup() {
     if (event.clientX < bounds.left || event.clientX > bounds.right ||
         event.clientY < bounds.top || event.clientY > bounds.bottom) dismiss();
   });
-  form.addEventListener('submit', () => {
-    // Native navigation lets Mailchimp display validation, CAPTCHA, or confirmation.
-    // Keep the email in the form until the browser has serialized its submission.
+  continueLink.addEventListener('click', () => {
+    // The address is entered once, on the band's hosted Mailchimp page.
     remember({ continued: true });
     clearTimeout(timer);
-    status.textContent = 'Finish signing up in the Mailchimp tab that opens.';
   });
   document.querySelector('.join').addEventListener('click', event => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

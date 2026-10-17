@@ -12,3 +12,6 @@
 @media(max-width:991px){.wordmark{width:330px;height:52.8px}}
 @media(max-width:700px){.links-mark{height:30px}}
 @media(max-width:479px){.wordmark{width:240px;height:38.4px}}
+/* Requested mobile title adjustment. */
+@media(max-width:700px){body>header{top:12px}.wordmark{width:300px;height:48px}}
+@media(max-width:479px){.wordmark{width:220px;height:35.2px}}
