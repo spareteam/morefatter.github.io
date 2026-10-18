@@ -127,7 +127,7 @@ async function waitForBackground(page, { playing = true, progress = false } = {}
       if (video.error) throw new Error(`Video error ${video.error.code}: ${video.error.message}`);
       return video.readyState >= 2 && video.videoWidth > 0 && (!playing || !video.paused) &&
         (!progress || video.currentTime > .15);
-    }, { playing, progress }, { timeout: 10000 });
+    }, { playing, progress }, { timeout: 10000, polling: 100 });
   } catch (error) {
     const state = await page.locator('.backdrop').evaluate(video => ({
       paused: video.paused, muted: video.muted, defaultMuted: video.defaultMuted,
@@ -203,6 +203,13 @@ test('Mobile background autoplays muted inline without a tap and preserves inten
     isMobile: true, hasTouch: true, realMedia: true });
   try {
     await waitForBackground(page, { progress: true });
+    // Once fresh-visit playback is established, isolate the navigation/pause
+    // checks from the separately tested twelve-second signup invitation.
+    await page.evaluate(() => {
+      const key = 'morefatter:signup:v1';
+      localStorage.setItem(key, JSON.stringify({ ...JSON.parse(localStorage.getItem(key)), dismissed: true }));
+    });
+    if (await page.locator('#signup-dialog').isVisible()) await page.locator('.signup-close').click();
     assert.deepEqual(await page.locator('.backdrop').evaluate(video =>
       [video.muted, video.defaultMuted, video.playsInline, video.autoplay]), [true, true, true, true]);
     await page.locator('.motion').click();
@@ -228,7 +235,8 @@ test('Mobile background autoplays muted inline without a tap and preserves inten
 
 test('Mobile background retries a temporarily denied autoplay request without a tap', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
-    isMobile: true, hasTouch: true, realMedia: true, initScript: holdBackgroundPlayback });
+    isMobile: true, hasTouch: true, realMedia: true, initScript: holdBackgroundPlayback,
+    signupState: { visits: 3, lastVisitAt: Date.now() } });
   try {
     await page.waitForFunction(() => window.backgroundPolicy.attempts > 0);
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
@@ -275,6 +283,24 @@ test('Mobile background can be paused before a slow first download finishes', as
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
     await page.locator('.motion').click();
     await waitForBackground(page, { progress: true });
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Mobile background keeps playing behind the first-visit signup without a tap', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
+    isMobile: true, hasTouch: true, realMedia: true, clock: true });
+  try {
+    await waitForBackground(page, { progress: true });
+    await page.clock.fastForward(12500);
+    assert.equal(await page.locator('#signup-dialog').isVisible(), true);
+    const before = await page.locator('.backdrop').evaluate(video => video.currentTime);
+    await page.waitForFunction(time => {
+      const video = document.querySelector('.backdrop');
+      return !video.paused && video.currentTime > time + .15;
+    }, before, { polling: 100, timeout: 10000 });
+    await page.locator('.signup-close').click();
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), false);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
@@ -844,7 +870,8 @@ test('Signup appears after twelve seconds, shows the band note, and remembers di
     assert.equal(await dialog.evaluate(node => node.matches(':modal')), true);
     assert.equal(await dialog.locator('ol li').count(), 5);
     assert((await dialog.innerText()).includes('We will always love you and cherish you.'));
-    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), false,
+      'The automatic invitation must not stop the background film');
     await dialog.getByRole('button', { name: 'Close mailing list signup' }).click();
     await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
     await page.reload({ waitUntil: 'networkidle' });

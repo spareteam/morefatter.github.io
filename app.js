@@ -464,7 +464,7 @@ let backgroundRetryCount = 0;
 const backgroundRetryDelays = [200, 500, 1000, 2000, 4000];
 
 function shouldPlayBackground() {
-  return backgroundRequested && !document.hidden && !signupOpen &&
+  return backgroundRequested && !document.hidden &&
     !Object.values(carousels).some(state => state.playerOpen);
 }
 
@@ -486,7 +486,7 @@ function updateMotion() {
   motion.textContent = background.paused ? 'Play background' : 'Pause background';
   motion.setAttribute('aria-pressed', String(!background.paused));
   motion.disabled = signupOpen || Object.values(carousels).some(state => state.playerOpen);
-  motion.title = signupOpen ? 'Close signup to resume the background.'
+  motion.title = signupOpen ? 'Close signup to change background playback.'
     : motion.disabled ? 'Resume the slideshow to resume the background.' : '';
 }
 
