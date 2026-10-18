@@ -37,14 +37,16 @@ jobs:
           printf 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=%s\n' "$chrome_path" >> "$GITHUB_ENV"
       - name: Prepare website files
         run: npm run build
-      - name: Test mobile autoplay in Safari's WebKit engine
+      - name: Test native mobile autoplay in Safari's WebKit engine
         id: webkit-tests
         env:
           TEST_BUILT_SITE: '1'
           TEST_BROWSER: webkit
         run: |
           set -o pipefail
-          node --test --test-name-pattern='Mobile background' tests/browser.test.cjs 2>&1 | tee /tmp/morefatter-webkit-tests.log
+          # Keep WebKit on unmodified native playback; the full Chrome suite also
+          # tests rejection and frozen-frame simulations that override media APIs.
+          node --test --test-name-pattern='Native mobile playback' tests/browser.test.cjs 2>&1 | tee /tmp/morefatter-webkit-tests.log
       - name: Test website interactions and layouts
         id: browser-tests
         env:

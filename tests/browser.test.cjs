@@ -198,7 +198,7 @@ test('White social links include the official TikTok and Spotify, with no green 
   }
 });
 
-test('Mobile background autoplays muted inline without a tap and preserves intentional pause', async () => {
+test('Native mobile playback autoplays muted inline without a tap and preserves intentional pause', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
     isMobile: true, hasTouch: true, realMedia: true });
   try {
@@ -274,7 +274,7 @@ test('Mobile background limits rejected retries and can recover on an ordinary p
   } finally { await context.close(); }
 });
 
-test('Mobile background can be paused before a slow first download finishes', async () => {
+test('Native mobile playback can be paused before a slow first download finishes', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
     isMobile: true, hasTouch: true, realMedia: true, videoDelay: 1200 });
   try {
@@ -291,7 +291,7 @@ test('Mobile background can be paused before a slow first download finishes', as
   } finally { await context.close(); }
 });
 
-test('Mobile background keeps playing behind the first-visit signup without a tap', async () => {
+test('Native mobile playback keeps playing behind the first-visit signup without a tap', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
     isMobile: true, hasTouch: true, realMedia: true, clock: true });
   try {
@@ -847,7 +847,7 @@ test('Every chooser matches its cover square exactly, keeps titles in place, and
   }
 });
 
-test('Mobile background still starts with reduced motion or data saving while reduced-motion interface animations stay off', async () => {
+test('Native mobile playback starts with reduced motion or data saving while reduced-motion interface animations stay off', async () => {
   for (const options of [{ reducedMotion: 'reduce' }, { saveData: true }]) {
     const { page, context, requests } = await openPage({ ...options, viewport: { width: 390, height: 844 },
       isMobile: true, hasTouch: true, clock: true, realMedia: true });
