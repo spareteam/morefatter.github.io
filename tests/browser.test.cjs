@@ -172,7 +172,8 @@ test('Approved baseline typography, colors, controls and layout are preserved', 
 
 test('White social links include the official TikTok and Spotify, with no green footer Spotify badge', async t => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 768, height: 1024 },
-    { width: 600, height: 800 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+    { width: 600, height: 800 }, { width: 390, height: 664 }, { width: 390, height: 844 },
+    { width: 430, height: 932 }, { width: 320, height: 568 }]) {
     await t.test(`${viewport.width}×${viewport.height}`, async () => {
       const { page, context, errors } = await openPage({ viewport, reducedMotion: 'reduce' });
       try {
@@ -189,7 +190,19 @@ test('White social links include the official TikTok and Spotify, with no green 
         const title = await page.locator('.wordmark').boundingBox();
         const nav = await page.locator('.nav').boundingBox();
         if (viewport.width <= 700) {
-          assert(title.y < 22 && title.width < 330, 'The mobile title should sit higher and be smaller');
+          assert(title.width < 330, 'Keep the approved mobile title size');
+          // The 720px film has 46px of black above its picture and 44px below.
+          const pictureTop = viewport.height * 46 / 720;
+          const pictureBottom = viewport.height * 676 / 720;
+          for (const selector of ['.wordmark', '.socials', 'footer', '.motion']) {
+            const control = await page.locator(selector).boundingBox();
+            assert(control.y >= pictureTop && control.y + control.height <= pictureBottom,
+              `${selector} must sit inside the film picture rather than its black bars`);
+          }
+          const footer = await page.locator('footer').boundingBox();
+          const motion = await page.locator('.motion').boundingBox();
+          assert(bounds.y + bounds.height < footer.y, 'Social icons must stay above the footer');
+          assert(footer.y + footer.height < motion.y, 'The playback control must stay below the footer');
           assert(title.y + title.height < nav.y, 'The title must leave mobile navigation clear');
         }
         assert.deepEqual(errors, []);

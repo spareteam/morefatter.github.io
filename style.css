@@ -79,3 +79,16 @@
 @media(max-width:700px){.signup-dialog{inset:150px 22px 155px;width:auto;max-height:calc(100svh - 305px)}.signup-dialog .signup-header{padding:18px 18px 12px}.signup-header h2{font-size:clamp(24px,7.2vw,30px)}.signup-copy{padding:0 18px 4px}.signup-action{padding:14px 18px 18px}}
 @media(max-height:700px){.signup-dialog .signup-header{padding:8px 18px}.signup-header h2{font-size:28px}.signup-action{padding:10px 18px}}
 @media(min-width:701px) and (max-height:600px){.signup-dialog{inset:100px 0 80px;max-height:calc(100svh - 180px)}}
+
+/* Keep mobile controls inside the picture, clear of the film's letterbox bars. */
+@media(max-width:700px){
+  body{--mobile-video-bar:6.5svh;--mobile-wordmark-height:48px;--mobile-title-top:calc(var(--mobile-video-bar) + 6px);--mobile-nav-top:max(93px,calc(var(--mobile-title-top) + var(--mobile-wordmark-height) + 10px));--mobile-panel-top:calc(var(--mobile-nav-top) + 57px);--mobile-panel-bottom:calc(156px + var(--mobile-video-bar))}
+  body>header{top:var(--mobile-title-top)}
+  .nav{top:var(--mobile-nav-top)}
+  footer{bottom:calc(26px + var(--mobile-video-bar))}
+  .socials{bottom:calc(93px + var(--mobile-video-bar))}
+  .motion{bottom:calc(6px + var(--mobile-video-bar))}
+  .panel{top:var(--mobile-panel-top);bottom:var(--mobile-panel-bottom)}
+  .signup-dialog{top:var(--mobile-panel-top);bottom:var(--mobile-panel-bottom);max-height:calc(100svh - var(--mobile-panel-top) - var(--mobile-panel-bottom))}
+}
+@media(max-width:479px){body{--mobile-wordmark-height:35.2px}}
