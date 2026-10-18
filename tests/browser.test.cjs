@@ -249,22 +249,24 @@ test('Mobile background retries a temporarily denied autoplay request without a 
 
 test('Mobile background limits rejected retries and can recover on an ordinary page gesture', async () => {
   const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
-    isMobile: true, hasTouch: true, realMedia: true, clock: true, reducedMotion: 'reduce',
+    isMobile: true, hasTouch: true, realMedia: true, reducedMotion: 'reduce',
     signupState: { visits: 3, lastVisitAt: Date.now() }, initScript: holdBackgroundPlayback });
   try {
     await waitForBackground(page, { playing: false });
     await page.waitForLoadState('load');
-    await page.clock.runFor(10000);
+    // Use real timers here: WebKit's paused native media does not advance the
+    // simulated clock's polling while its first media download is pending.
+    await page.waitForTimeout(8500);
     const attempts = await page.evaluate(() => window.backgroundPolicy.attempts);
     assert(attempts > 1 && attempts < 15, 'Rejected playback must use a finite retry budget');
-    await page.clock.runFor(20000);
+    await page.waitForTimeout(2500);
     assert.equal(await page.evaluate(() => window.backgroundPolicy.attempts), attempts, 'A permanent block must not create an endless retry loop');
     await page.evaluate(() => { window.backgroundPolicy.allowed = true; });
     await page.locator('.wordmark').click();
-    await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
+    await waitForBackground(page, { progress: true });
     await page.locator('.motion').click();
     await choose(page, 'music');
-    await page.clock.runFor(10000);
+    await page.waitForTimeout(750);
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
