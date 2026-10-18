@@ -285,7 +285,11 @@ function installSwipe(kind) {
     const threshold = Math.max(20, Math.min(32, viewport.clientWidth * .06));
     const swipe = event.type === 'pointerup' && gesture.dragging &&
       distance > Math.abs(gesture.dy) * 1.15 && (distance >= threshold || (distance >= 12 && speed > .3));
-    if (gesture.dragging) state.suppressClickUntil = performance.now() + 400;
+    // WebKit can synthesize an artwork click even after capture was lost or a
+    // release landed outside it. Only a completed, stationary tap may activate it.
+    if (event.type !== 'pointerup' || gesture.dragging || distance > 6 || Math.abs(gesture.dy) > 6) {
+      state.suppressClickUntil = performance.now() + 400;
+    }
     const direction = gesture.dx < 0 ? 1 : -1;
     if (gesture.dragging) goTo(kind, state.index + (swipe ? direction : 0), { direction, dragOffset: gesture.dx });
     else {

@@ -143,6 +143,7 @@ test('Device audit: lost artwork capture cannot freeze Music while Video keeps a
     }));
     await press(page.locator('[data-panel="video"]'));
     await page.waitForFunction(() => document.querySelector('#video-content').dataset.index === '1', null, { timeout: 5000 });
+    assert.equal(diagnostic.streaming, false, 'An interrupted gesture must not become an artwork click that opens streaming choices');
     assert.equal(musicIndex, 1, `Music must recover after artwork capture is lost, just as Video keeps advancing. ${JSON.stringify(diagnostic)}`);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
