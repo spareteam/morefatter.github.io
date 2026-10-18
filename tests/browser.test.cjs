@@ -252,10 +252,12 @@ test('Mobile background limits rejected retries and can recover on an ordinary p
     isMobile: true, hasTouch: true, realMedia: true, reducedMotion: 'reduce',
     signupState: { visits: 3, lastVisitAt: Date.now() }, initScript: holdBackgroundPlayback });
   try {
-    await waitForBackground(page, { playing: false });
+    // A blocked browser may defer video decoding. Retry limits depend on the
+    // rejected play requests, not on a decoded frame becoming available.
+    await page.waitForFunction(() => window.backgroundPolicy.attempts > 0, null, { polling: 100 });
     await page.waitForLoadState('load');
-    // Use real timers here: WebKit's paused native media does not advance the
-    // simulated clock's polling while its first media download is pending.
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    // Keep this rejection-budget check independent of the media clock.
     await page.waitForTimeout(8500);
     const attempts = await page.evaluate(() => window.backgroundPolicy.attempts);
     assert(attempts > 1 && attempts < 15, 'Rejected playback must use a finite retry budget');
