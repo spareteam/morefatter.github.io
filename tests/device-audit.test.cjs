@@ -111,6 +111,14 @@ test('Device audit: iPhone 13 music and video auto-advance after dismissing sign
 test('Device audit: lost artwork capture cannot freeze Music while Video keeps advancing', async () => {
   const { page, context, errors, press } = await open();
   try {
+    await page.evaluate(() => {
+      window.auditInput = [];
+      for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'gotpointercapture', 'lostpointercapture', 'click', 'focusin']) {
+        window.addEventListener(type, event => window.auditInput.push({ type,
+          target: `${event.target.tagName}.${event.target.className}`, x: event.clientX, y: event.clientY,
+          pointer: event.pointerId, time: performance.now() }), { capture: true, passive: true });
+      }
+    });
     await press(page.locator('[data-panel="music"]'));
     const art = preview(page, 'music').locator('img');
     await art.evaluate(image => image.addEventListener('pointerdown', event => {
@@ -128,9 +136,14 @@ test('Device audit: lost artwork capture cannot freeze Music while Video keeps a
     await page.mouse.up();
     await page.waitForTimeout(3500);
     const musicIndex = await index(page, 'music');
+    const diagnostic = await page.evaluate(() => ({
+      events: window.auditInput.slice(-20), keyboardMode, current, signupOpen,
+      gesture: carousels.music.gesture, streaming: carousels.music.streamingOpen,
+      paused: carousels.music.paused, timer: carousels.music.timer,
+    }));
     await press(page.locator('[data-panel="video"]'));
     await page.waitForFunction(() => document.querySelector('#video-content').dataset.index === '1', null, { timeout: 5000 });
-    assert.equal(musicIndex, 1, 'Music must recover after artwork capture is lost, just as Video keeps advancing');
+    assert.equal(musicIndex, 1, `Music must recover after artwork capture is lost, just as Video keeps advancing. ${JSON.stringify(diagnostic)}`);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
