@@ -22,6 +22,10 @@ function localAsset(reference, label) {
 }
 
 localAsset(data.video, 'Background video');
+const background = html.match(/<video\b[^>]*class="backdrop"[^>]*>/i)?.[0];
+assert(background?.includes(`src="${data.video}"`) && /\bautoplay\b/.test(background) &&
+  /\bmuted\b/.test(background) && /\bplaysinline\b/.test(background),
+  'The muted inline background film must be available to native HTML autoplay on first load.');
 localAsset(data.poster, 'Background poster');
 for (const icon of data.icons) localAsset(icon.image, icon.name);
 const css = readFileSync(resolve(root, 'style.css'), 'utf8');

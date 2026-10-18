@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 
 const root = path.resolve(__dirname, '..');
 const releases = JSON.parse(fs.readFileSync(path.join(root, 'content.json'), 'utf8')).music;
@@ -28,13 +28,24 @@ before(async () => {
       fs.existsSync(path.join(servedRoot, name)) && fs.statSync(path.join(servedRoot, name)).isFile();
     if (!baseline && !publicFiles.has(name) && !localAsset) return response.writeHead(404).end();
     response.setHeader('Content-Type', types[path.extname(name)] || 'application/octet-stream');
-    response.end(fs.readFileSync(path.join(baseline ? path.join(__dirname, 'fixtures') : servedRoot, name)));
+    const bytes = fs.readFileSync(path.join(baseline ? path.join(__dirname, 'fixtures') : servedRoot, name));
+    response.setHeader('Accept-Ranges', 'bytes');
+    const range = request.headers.range?.match(/^bytes=(\d+)-(\d*)$/);
+    if (range) {
+      const start = Number(range[1]);
+      const end = Math.min(range[2] ? Number(range[2]) : bytes.length - 1, bytes.length - 1);
+      response.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${bytes.length}`,
+        'Content-Length': end - start + 1 });
+      return response.end(bytes.subarray(start, end + 1));
+    }
+    response.end(bytes);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   origin = `http://127.0.0.1:${server.address().port}`;
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
     (fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
-  browser = await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox'] });
+  browser = process.env.TEST_BROWSER === 'webkit' ? await webkit.launch({ headless: true })
+    : await chromium.launch({ executablePath, headless: true, args: ['--no-sandbox'] });
 });
 
 after(async () => {
@@ -43,8 +54,10 @@ after(async () => {
 });
 
 async function openPage(options = {}) {
-  const { saveData, clock = false, signupState, storageUnavailable, realMedia = false, query = '', ...contextOptions } = options;
+  const { saveData, clock = false, signupState, storageUnavailable, realMedia = false,
+    initScript, videoDelay = 0, query = '', ...contextOptions } = options;
   const context = await browser.newContext(contextOptions);
+  if (initScript) await context.addInitScript(initScript);
   if (signupState) await context.addInitScript(state => {
     localStorage.setItem('morefatter:signup:v1', JSON.stringify(state));
   }, signupState);
@@ -58,10 +71,11 @@ async function openPage(options = {}) {
   const requests = [];
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await context.route('**/*', route => {
+  await context.route('**/*', async route => {
     const request = route.request();
     const url = new URL(request.url());
     requests.push({ url: url.href, type: request.resourceType(), method: request.method(), body: request.postData() });
+    if (url.pathname.endsWith('.mp4') && videoDelay) await new Promise(resolve => setTimeout(resolve, videoDelay));
     // A short fixture keeps long background downloads from blocking timer-driven tests.
     if (url.pathname.endsWith('.mp4') && !realMedia) return route.fulfill({ path: fixture, contentType: 'video/webm' });
     if (url.origin === origin) return route.continue();
@@ -75,7 +89,7 @@ async function openPage(options = {}) {
     return route.abort();
   });
   if (clock) await page.clock.install();
-  await page.goto(origin + query, { waitUntil: 'networkidle' });
+  await page.goto(origin + query, { waitUntil: realMedia ? 'domcontentloaded' : 'networkidle' });
   return { page, context, requests, errors };
 }
 
@@ -89,6 +103,21 @@ async function index(page, kind) {
 
 function activePreview(page, kind) {
   return page.locator(`#${kind} .slide[data-active="true"] .${kind === 'music' ? 'music-preview' : 'video-preview'}`);
+}
+
+function holdBackgroundPlayback() {
+  window.backgroundPolicy = { allowed: false, attempts: 0 };
+  const nativePlay = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function () {
+    if (!this.matches('.backdrop')) return nativePlay.call(this);
+    window.backgroundPolicy.attempts++;
+    if (!window.backgroundPolicy.allowed) return Promise.reject(new DOMException('Autoplay temporarily blocked', 'NotAllowedError'));
+    return nativePlay.call(this);
+  };
+  // Native HTML autoplay also needs to obey the simulated browser policy.
+  document.addEventListener('play', event => {
+    if (event.target.matches('.backdrop') && !window.backgroundPolicy.allowed) event.target.pause();
+  }, true);
 }
 
 async function styleSnapshot(page) {
@@ -131,7 +160,7 @@ test('White social links include the official TikTok and Spotify, with no green 
         assert.equal(await page.locator('footer .spotify').count(), 0);
         assert.equal(await socials.getByRole('link', { name: 'Spotify', exact: true }).count(), 1);
         const tiktok = socials.getByRole('link', { name: 'TikTok', exact: true });
-        assert.equal(await tiktok.getAttribute('href'), 'https://www.tiktok.com/@morefatterofficial');
+        assert.equal(await tiktok.getAttribute('href'), 'https://www.tiktok.com/@morefatterband');
         assert.equal(await tiktok.getAttribute('target'), '_blank');
         assert.equal(await tiktok.locator('img').evaluate(image => image.complete && image.naturalWidth > 0), true);
         const bounds = await socials.boundingBox();
@@ -149,11 +178,12 @@ test('White social links include the official TikTok and Spotify, with no green 
 });
 
 test('Mobile background autoplays muted inline without a tap and preserves intentional pause', async () => {
-  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, clock: true });
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
+    isMobile: true, hasTouch: true, realMedia: true });
   try {
     await page.waitForFunction(() => {
       const video = document.querySelector('.backdrop');
-      return !video.paused && video.readyState >= 2 && video.videoWidth > 0;
+      return !video.paused && video.readyState >= 2 && video.videoWidth > 0 && video.currentTime > .15;
     });
     assert.deepEqual(await page.locator('.backdrop').evaluate(video =>
       [video.muted, video.defaultMuted, video.playsInline, video.autoplay]), [true, true, true, true]);
@@ -178,6 +208,64 @@ test('Mobile background autoplays muted inline without a tap and preserves inten
   } finally { await context.close(); }
 });
 
+test('Mobile background retries a temporarily denied autoplay request without a tap', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
+    isMobile: true, hasTouch: true, realMedia: true, initScript: holdBackgroundPlayback });
+  try {
+    await page.waitForFunction(() => window.backgroundPolicy.attempts > 0);
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    // No page interaction or media event accompanies the policy becoming permissive.
+    await page.evaluate(() => { window.backgroundPolicy.allowed = true; });
+    await page.waitForFunction(() => {
+      const video = document.querySelector('.backdrop');
+      return !video.paused && video.readyState >= 2 && video.currentTime > .15;
+    });
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Mobile background limits rejected retries and can recover on an ordinary page gesture', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
+    isMobile: true, hasTouch: true, realMedia: true, clock: true, reducedMotion: 'reduce',
+    signupState: { visits: 3, lastVisitAt: Date.now() }, initScript: holdBackgroundPlayback });
+  try {
+    await page.waitForFunction(() => document.querySelector('.backdrop').readyState >= 2 && document.readyState === 'complete');
+    await page.clock.runFor(10000);
+    const attempts = await page.evaluate(() => window.backgroundPolicy.attempts);
+    assert(attempts > 1 && attempts < 15, 'Rejected playback must use a finite retry budget');
+    await page.clock.runFor(20000);
+    assert.equal(await page.evaluate(() => window.backgroundPolicy.attempts), attempts, 'A permanent block must not create an endless retry loop');
+    await page.evaluate(() => { window.backgroundPolicy.allowed = true; });
+    await page.locator('.wordmark').click();
+    await page.waitForFunction(() => !document.querySelector('.backdrop').paused);
+    await page.locator('.motion').click();
+    await choose(page, 'music');
+    await page.clock.runFor(10000);
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Mobile background can be paused before a slow first download finishes', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
+    isMobile: true, hasTouch: true, realMedia: true, videoDelay: 1200 });
+  try {
+    await page.waitForFunction(() => document.querySelector('.motion').textContent === 'Pause background');
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.readyState), 0);
+    await page.locator('.motion').click();
+    await page.waitForFunction(() => document.querySelector('.backdrop').readyState >= 2);
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    await page.locator('.wordmark').click();
+    assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+    await page.locator('.motion').click();
+    await page.waitForFunction(() => {
+      const video = document.querySelector('.backdrop');
+      return !video.paused && video.currentTime > .15;
+    });
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
 test('Owned artwork, logos, font and background video work without third-party media requests', async () => {
   const { page, context, requests, errors } = await openPage({ reducedMotion: 'reduce', clock: true, realMedia: true });
   try {
@@ -196,7 +284,6 @@ test('Owned artwork, logos, font and background video work without third-party m
     });
     assert(decoded.images.every(image => image.local && image.width > 0 && image.height > 0));
     assert.equal(decoded.fontLoaded, true);
-    await page.locator('.motion').click();
     await page.waitForFunction(() => {
       const video = document.querySelector('.backdrop');
       if (video.error) throw new Error(`The test browser could not decode the original H.264 film: ${video.error.message}`);
@@ -676,16 +763,20 @@ test('Every chooser matches its cover square exactly, keeps titles in place, and
   }
 });
 
-test('Reduced motion and data saving keep the background unloaded without silently disabling auto-advance', async () => {
+test('Mobile background still starts with reduced motion or data saving while reduced-motion interface animations stay off', async () => {
   for (const options of [{ reducedMotion: 'reduce' }, { saveData: true }]) {
-    const { page, context, requests } = await openPage({ ...options, clock: true });
+    const { page, context, requests } = await openPage({ ...options, viewport: { width: 390, height: 844 },
+      isMobile: true, hasTouch: true, clock: true, realMedia: true });
     try {
+      await page.waitForFunction(() => {
+        const video = document.querySelector('.backdrop');
+        return !video.paused && video.readyState >= 2 && video.videoWidth > 0;
+      });
       await choose(page, 'music');
       assert.equal(await page.locator('#music .rotation-toggle').innerText(), 'Pause slideshow');
       await page.clock.fastForward(3100);
       assert.equal(await index(page, 'music'), 1);
-      assert.equal(await page.locator('.backdrop').getAttribute('src'), null);
-      assert.equal(requests.some(request => request.url.includes('.mp4')), false);
+      assert.equal(requests.some(request => request.url.includes('.mp4')), true);
       if (options.reducedMotion) assert.equal(await page.locator('#music-content').getAttribute('data-animating'), 'false');
     } finally { await context.close(); }
   }

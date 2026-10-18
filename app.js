@@ -3,7 +3,6 @@
 const data = JSON.parse(document.querySelector('#site-data').textContent);
 const nav = [...document.querySelectorAll('[data-panel]')];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const connection = navigator.connection;
 const ROTATION_DELAY = 3000;
 const carousels = {};
 const brandAnimations = [];
@@ -458,7 +457,30 @@ background.muted = true;
 background.defaultMuted = true;
 background.playsInline = true;
 background.autoplay = true;
-let backgroundRequested = !reducedMotion.matches && !connection?.saveData;
+let backgroundRequested = true;
+let backgroundPlayPending = false;
+let backgroundRetryTimer = null;
+let backgroundRetryCount = 0;
+const backgroundRetryDelays = [200, 500, 1000, 2000, 4000];
+
+function shouldPlayBackground() {
+  return backgroundRequested && !document.hidden && !signupOpen &&
+    !Object.values(carousels).some(state => state.playerOpen);
+}
+
+function clearBackgroundRetry() {
+  clearTimeout(backgroundRetryTimer);
+  backgroundRetryTimer = null;
+}
+
+function retryBackground() {
+  if (!shouldPlayBackground() || backgroundRetryTimer !== null ||
+      backgroundRetryCount >= backgroundRetryDelays.length) return;
+  backgroundRetryTimer = setTimeout(() => {
+    backgroundRetryTimer = null;
+    updateBackground();
+  }, backgroundRetryDelays[backgroundRetryCount++]);
+}
 
 function updateMotion() {
   motion.textContent = background.paused ? 'Play background' : 'Pause background';
@@ -469,37 +491,71 @@ function updateMotion() {
 }
 
 function updateBackground() {
-  const playerOpen = Object.values(carousels).some(state => state.playerOpen);
-  const shouldPlay = backgroundRequested && !document.hidden && !playerOpen && !signupOpen;
-  if (!shouldPlay) background.pause();
-  else if (background.paused) {
+  if (!shouldPlayBackground()) {
+    clearBackgroundRetry();
+    background.pause();
+  } else if (background.paused && !backgroundPlayPending) {
     if (!background.getAttribute('src')) { background.src = data.video; background.load(); }
-    background.play().catch(() => updateMotion());
+    background.muted = true;
+    backgroundPlayPending = true;
+    Promise.resolve(background.play()).then(() => {
+      backgroundPlayPending = false;
+      if (!shouldPlayBackground()) background.pause();
+    }).catch(() => {
+      backgroundPlayPending = false;
+      updateMotion();
+      retryBackground();
+    });
   }
   updateMotion();
   updateBrandAnimations();
 }
-background.addEventListener('play', updateBackground);
-background.addEventListener('pause', updateMotion);
+background.addEventListener('play', () => {
+  if (!shouldPlayBackground()) background.pause();
+  updateMotion();
+});
+background.addEventListener('playing', () => {
+  clearBackgroundRetry();
+  backgroundRetryCount = 0;
+  updateMotion();
+});
+background.addEventListener('pause', () => {
+  updateMotion();
+  retryBackground();
+});
 background.addEventListener('error', updateMotion);
 background.addEventListener('canplay', updateBackground);
-window.addEventListener('pageshow', updateBackground);
+background.addEventListener('loadeddata', updateBackground);
+function resumeBackground() {
+  backgroundRetryCount = 0;
+  clearBackgroundRetry();
+  updateBackground();
+}
+window.addEventListener('load', resumeBackground);
+window.addEventListener('pageshow', resumeBackground);
+// Some mobile browsers allow playback only after a real interaction. Retry on
+// the first available gesture without turning a visitor's deliberate pause off.
+function retryBackgroundOnGesture(event) {
+  if (event.target.closest?.('.motion') || !background.paused || !shouldPlayBackground()) return;
+  resumeBackground();
+}
+document.addEventListener('pointerup', retryBackgroundOnGesture, { passive: true });
+document.addEventListener('touchend', retryBackgroundOnGesture, { passive: true });
+document.addEventListener('keydown', retryBackgroundOnGesture);
 motion.addEventListener('click', () => {
   backgroundRequested = background.paused;
   if (backgroundRequested && background.error) background.load();
-  updateBackground();
+  resumeBackground();
 });
 document.addEventListener('visibilitychange', () => {
-  updateBackground();
+  resumeBackground();
   for (const kind of Object.keys(carousels)) scheduleRotation(kind);
 });
 function updatePreferences() {
-  if (reducedMotion.matches || connection?.saveData) backgroundRequested = false;
   if (reducedMotion.matches) for (const kind of Object.keys(carousels)) finishTransition(kind);
   updateBackground();
 }
 reducedMotion.addEventListener('change', updatePreferences);
-connection?.addEventListener('change', updatePreferences);
 
 function updateBrandAnimations() {
   for (const state of brandAnimations) {

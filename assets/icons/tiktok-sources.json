@@ -10,10 +10,9 @@
   "modifications": "Added white fill (#fff) to match the existing monochrome social icons. The original 24×24 viewBox and path are unchanged.",
   "sha256": "26f27c5ff961e844393968b374dcdec03c564fe876d302f0898e362e5d24f2c5",
   "band_profile": {
-    "url": "https://www.tiktok.com/@morefatterofficial",
-    "verified_from": "https://distrokid.com/hyperfollow/morefatter/livin-in-a-museum",
-    "evidence": "The official release page linked from morefatter.band includes this TikTok URL both in the More Fatter MusicGroup SAMEAS structured data and in the TikTok social link.",
-    "checked_date": "2026-10-17",
-    "note": "The TikTok profile itself could not be fetched in the cloud environment; the account URL is verified by the band-owned cross-link."
+    "url": "https://www.tiktok.com/@morefatterband",
+    "verified_from": "Band owner supplied the current account URL in this conversation.",
+    "checked_date": "2026-10-18",
+    "note": "Replaces the older account linked on the distributor page. The web-app tracking parameters in the supplied link are omitted."
   }
 }
