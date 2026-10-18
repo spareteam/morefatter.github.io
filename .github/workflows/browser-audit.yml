@@ -1,0 +1,52 @@
+name: Browser and device audit
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: ['audit/**']
+
+permissions:
+  contents: read
+
+jobs:
+  devices:
+    name: ${{ matrix.browser }} layouts and carousels
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run check && npm run build
+      - name: Check layouts and carousel input
+        env:
+          TEST_BUILT_SITE: '1'
+          TEST_BROWSER: ${{ matrix.browser }}
+        run: |
+          set -o pipefail
+          export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$(command -v google-chrome)"
+          node --test tests/device-audit.test.cjs 2>&1 | tee /tmp/morefatter-device-audit.log
+      - name: Explain an audit failure
+        if: failure()
+        run: |
+          node --input-type=module <<'NODE'
+          import { existsSync, readFileSync } from 'node:fs';
+          const path = '/tmp/morefatter-device-audit.log';
+          if (existsSync(path)) {
+            const log = readFileSync(path, 'utf8').slice(-18000);
+            for (let i = 0; i < log.length; i += 3000) {
+              const message = log.slice(i, i + 3000).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+              console.log(`::error title=Device audit details ${1 + i / 3000}::${message}`);
+            }
+          }
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-audit-${{ matrix.browser }}
+          path: test-results/device-audit
+          retention-days: 14
