@@ -836,11 +836,15 @@ test('Every chooser matches its cover square exactly, keeps titles in place, and
         await activePreview(page, 'music').click();
         const resized = viewport.width > 700 ? { width: 390, height: 844 } : { width: 1440, height: 900 };
         await page.setViewportSize(resized);
+        // Let resize events and ResizeObserver commit the responsive layout
+        // before comparing the chooser with the artwork restored afterward.
+        await page.clock.runFor(100);
         const chooser = await page.locator('#music .stream-options').boundingBox();
         assert(Math.abs(chooser.width - chooser.height) <= 1, 'Resizing must preserve the square');
         await page.getByRole('button', { name: 'Back to artwork' }).click();
         const cover = await activePreview(page, 'music').boundingBox();
-        assert(Math.abs(chooser.width - cover.width) <= 1 && Math.abs(chooser.height - cover.height) <= 1);
+        assert(Math.abs(chooser.width - cover.width) <= 1 && Math.abs(chooser.height - cover.height) <= 1,
+          `Resized chooser ${JSON.stringify(chooser)} must match artwork ${JSON.stringify(cover)}`);
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     });
