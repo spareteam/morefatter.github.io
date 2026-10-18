@@ -37,13 +37,6 @@ jobs:
           printf 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=%s\n' "$chrome_path" >> "$GITHUB_ENV"
       - name: Prepare website files
         run: npm run build
-      - name: Test website interactions and layouts
-        id: browser-tests
-        env:
-          TEST_BUILT_SITE: '1'
-        run: |
-          set -o pipefail
-          npm test 2>&1 | tee /tmp/morefatter-browser-tests.log
       - name: Test mobile autoplay in Safari's WebKit engine
         id: webkit-tests
         env:
@@ -52,15 +45,32 @@ jobs:
         run: |
           set -o pipefail
           node --test --test-name-pattern='Mobile background' tests/browser.test.cjs 2>&1 | tee /tmp/morefatter-webkit-tests.log
+      - name: Test website interactions and layouts
+        id: browser-tests
+        env:
+          TEST_BUILT_SITE: '1'
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/morefatter-browser-tests.log
       - name: Explain a browser test failure
         if: failure() && (steps.browser-tests.outcome == 'failure' || steps.webkit-tests.outcome == 'failure')
+        env:
+          CHROME_FAILED: ${{ steps.browser-tests.outcome == 'failure' }}
+          WEBKIT_FAILED: ${{ steps.webkit-tests.outcome == 'failure' }}
         run: |
           node --input-type=module <<'NODE'
           import { existsSync, readFileSync } from 'node:fs';
-          const log = ['/tmp/morefatter-browser-tests.log', '/tmp/morefatter-webkit-tests.log']
-            .filter(existsSync).map(path => `${path}\n${readFileSync(path, 'utf8')}`).join('\n').slice(-40000);
-          const message = log.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
-          console.log(`::error title=Browser test details::${message}`);
+          for (const [engine, failed, path] of [
+            ['Chrome', process.env.CHROME_FAILED, '/tmp/morefatter-browser-tests.log'],
+            ['WebKit', process.env.WEBKIT_FAILED, '/tmp/morefatter-webkit-tests.log'],
+          ]) {
+            if (failed !== 'true' || !existsSync(path)) continue;
+            const log = readFileSync(path, 'utf8').slice(-12000);
+            for (let i = 0; i < log.length; i += 3000) {
+              const message = log.slice(i, i + 3000).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
+              console.log(`::error title=${engine} test details ${1 + i / 3000}::${message}`);
+            }
+          }
           NODE
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5

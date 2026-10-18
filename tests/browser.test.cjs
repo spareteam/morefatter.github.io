@@ -120,6 +120,27 @@ function holdBackgroundPlayback() {
   }, true);
 }
 
+async function waitForBackground(page, { playing = true, progress = false } = {}) {
+  try {
+    await page.waitForFunction(({ playing, progress }) => {
+      const video = document.querySelector('.backdrop');
+      if (video.error) throw new Error(`Video error ${video.error.code}: ${video.error.message}`);
+      return video.readyState >= 2 && video.videoWidth > 0 && (!playing || !video.paused) &&
+        (!progress || video.currentTime > .15);
+    }, { playing, progress }, { timeout: 10000 });
+  } catch (error) {
+    const state = await page.locator('.backdrop').evaluate(video => ({
+      paused: video.paused, muted: video.muted, defaultMuted: video.defaultMuted,
+      playsInline: video.playsInline, readyState: video.readyState, networkState: video.networkState,
+      width: video.videoWidth, currentTime: video.currentTime, currentSrc: video.currentSrc,
+      error: video.error && { code: video.error.code, message: video.error.message },
+      h264: video.canPlayType('video/mp4; codecs="avc1.64001f"'),
+      hidden: document.hidden, signupOpen: document.querySelector('#signup-dialog').open,
+    }));
+    throw new Error(`${error.message}\nPlayback state: ${JSON.stringify(state)}`);
+  }
+}
+
 async function styleSnapshot(page) {
   return page.evaluate(() => {
     const selectors = ['header', '.wordmark', '.nav', '.nav button', '.socials', '.socials img',
@@ -181,10 +202,7 @@ test('Mobile background autoplays muted inline without a tap and preserves inten
   const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
     isMobile: true, hasTouch: true, realMedia: true });
   try {
-    await page.waitForFunction(() => {
-      const video = document.querySelector('.backdrop');
-      return !video.paused && video.readyState >= 2 && video.videoWidth > 0 && video.currentTime > .15;
-    });
+    await waitForBackground(page, { progress: true });
     assert.deepEqual(await page.locator('.backdrop').evaluate(video =>
       [video.muted, video.defaultMuted, video.playsInline, video.autoplay]), [true, true, true, true]);
     await page.locator('.motion').click();
@@ -216,10 +234,7 @@ test('Mobile background retries a temporarily denied autoplay request without a 
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
     // No page interaction or media event accompanies the policy becoming permissive.
     await page.evaluate(() => { window.backgroundPolicy.allowed = true; });
-    await page.waitForFunction(() => {
-      const video = document.querySelector('.backdrop');
-      return !video.paused && video.readyState >= 2 && video.currentTime > .15;
-    });
+    await waitForBackground(page, { progress: true });
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
@@ -229,7 +244,8 @@ test('Mobile background limits rejected retries and can recover on an ordinary p
     isMobile: true, hasTouch: true, realMedia: true, clock: true, reducedMotion: 'reduce',
     signupState: { visits: 3, lastVisitAt: Date.now() }, initScript: holdBackgroundPlayback });
   try {
-    await page.waitForFunction(() => document.querySelector('.backdrop').readyState >= 2 && document.readyState === 'complete');
+    await waitForBackground(page, { playing: false });
+    await page.waitForLoadState('load');
     await page.clock.runFor(10000);
     const attempts = await page.evaluate(() => window.backgroundPolicy.attempts);
     assert(attempts > 1 && attempts < 15, 'Rejected playback must use a finite retry budget');
@@ -253,15 +269,12 @@ test('Mobile background can be paused before a slow first download finishes', as
     await page.waitForFunction(() => document.querySelector('.motion').textContent === 'Pause background');
     assert.equal(await page.locator('.backdrop').evaluate(video => video.readyState), 0);
     await page.locator('.motion').click();
-    await page.waitForFunction(() => document.querySelector('.backdrop').readyState >= 2);
+    await waitForBackground(page, { playing: false });
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
     await page.locator('.wordmark').click();
     assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
     await page.locator('.motion').click();
-    await page.waitForFunction(() => {
-      const video = document.querySelector('.backdrop');
-      return !video.paused && video.currentTime > .15;
-    });
+    await waitForBackground(page, { progress: true });
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
@@ -768,10 +781,7 @@ test('Mobile background still starts with reduced motion or data saving while re
     const { page, context, requests } = await openPage({ ...options, viewport: { width: 390, height: 844 },
       isMobile: true, hasTouch: true, clock: true, realMedia: true });
     try {
-      await page.waitForFunction(() => {
-        const video = document.querySelector('.backdrop');
-        return !video.paused && video.readyState >= 2 && video.videoWidth > 0;
-      });
+      await waitForBackground(page);
       await choose(page, 'music');
       assert.equal(await page.locator('#music .rotation-toggle').innerText(), 'Pause slideshow');
       await page.clock.fastForward(3100);
