@@ -94,3 +94,14 @@
 @media(max-width:479px){body{--mobile-wordmark-height:35.2px}}
 /* Leave the same gap when the footer wraps on the smallest phones. */
 @media(max-width:355px){body{--mobile-footer-height:66px}}
+
+/* Inset desktop controls past the film's bars after object-fit:cover cropping. */
+@media(min-width:701px){
+  body{--desktop-video-height:max(100svh,56.25vw);--desktop-video-bar:max(0px,calc(50svh - var(--desktop-video-height)*.435))}
+  body>header{top:calc(30px + var(--desktop-video-bar))}
+  footer{bottom:calc(28px + var(--desktop-video-bar))}
+  .motion{bottom:calc(26px + var(--desktop-video-bar))}
+  .panel{top:calc(120px + var(--desktop-video-bar));bottom:calc(130px + var(--desktop-video-bar))}
+  .signup-dialog{top:calc(120px + var(--desktop-video-bar));bottom:calc(130px + var(--desktop-video-bar));max-height:min(560px,calc(100svh - 250px - var(--desktop-video-bar)*2))}
+}
+@media(min-width:701px) and (max-height:600px){.signup-dialog{top:calc(100px + var(--desktop-video-bar));bottom:calc(80px + var(--desktop-video-bar));max-height:calc(100svh - 180px - var(--desktop-video-bar)*2)}}
