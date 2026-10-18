@@ -564,7 +564,7 @@ test('Both carousels advance every three seconds even while hovered, wrap, and r
   } finally { await context.close(); }
 });
 
-async function touchSwipe(page, dx, dy = 0, inspectDrag) {
+async function touchSwipe(page, dx, dy = 0, inspectDrag, duration = 0) {
   const viewport = page.locator('.panel:not([hidden]) .carousel-viewport');
   const area = page.locator('.panel:not([hidden]) .carousel-scroll-area');
   const bounds = await viewport.boundingBox();
@@ -577,9 +577,12 @@ async function touchSwipe(page, dx, dy = 0, inspectDrag) {
   const point = (x, y) => ({ x, y, id: 1, radiusX: 1, radiusY: 1, force: 1 });
   try {
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point(x, y)] });
-    for (let step = 1; step <= 6; step++) await client.send('Input.dispatchTouchEvent', {
-      type: 'touchMove', touchPoints: [point(x + dx * step / 6, y + dy * step / 6)],
-    });
+    for (let step = 1; step <= 6; step++) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove', touchPoints: [point(x + dx * step / 6, y + dy * step / 6)],
+      });
+      if (duration) await page.waitForTimeout(duration / 6);
+    }
     if (inspectDrag) {
       // Native touch moves may be coalesced until the next rendered frame.
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -608,6 +611,23 @@ test('Native swipes follow the finger and finish with a horizontal animation in 
       await touchSwipe(page, 140);
       assert.equal(await index(page, kind), 0);
       await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.animating === 'false', kind);
+    }
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Gentle 24px native touch swipes change slides without opening music choices or video players', async () => {
+  const { page, context, errors } = await openPage({ viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true });
+  try {
+    for (const kind of ['music', 'video']) {
+      await choose(page, kind);
+      await touchSwipe(page, -24, 5, undefined, 480);
+      assert.equal(await index(page, kind), 1, `${kind}: a small, slow swipe should advance`);
+      await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.animating === 'false', kind);
+      await touchSwipe(page, 24, -5, undefined, 480);
+      assert.equal(await index(page, kind), 0);
+      await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.animating === 'false', kind);
+      assert.equal(await page.locator('.stream-options, iframe').count(), 0, 'Swipes must not become taps on the artwork');
     }
     assert.deepEqual(errors, []);
   } finally { await context.close(); }

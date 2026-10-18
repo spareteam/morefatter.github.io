@@ -86,6 +86,7 @@ function previewImage(url, title, className) {
   image.alt = title;
   image.loading = 'lazy';
   image.decoding = 'async';
+  image.draggable = false;
   return image;
 }
 
@@ -252,7 +253,7 @@ function installSwipe(kind) {
     if (!event.isPrimary || event.button !== 0 || event.target.closest('.stream-options')) return;
     finishTransition(kind);
     state.gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
-      started: performance.now(), dx: 0, dy: 0, dragging: false };
+      started: performance.now(), dx: 0, dy: 0, axis: null, dragging: false };
     clearRotation(state);
   });
   viewport.addEventListener('pointermove', event => {
@@ -260,7 +261,11 @@ function installSwipe(kind) {
     if (!gesture || gesture.id !== event.pointerId) return;
     gesture.dx = event.clientX - gesture.x;
     gesture.dy = event.clientY - gesture.y;
-    if (Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.3) {
+    if (!gesture.axis) {
+      if (Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15) gesture.axis = 'x';
+      else if (Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx)) gesture.axis = 'y';
+    }
+    if (gesture.axis === 'x') {
       gesture.dragging = true;
       if (!viewport.hasPointerCapture(event.pointerId)) viewport.setPointerCapture(event.pointerId);
       if (event.cancelable) event.preventDefault();
@@ -277,9 +282,9 @@ function installSwipe(kind) {
     state.gesture = null;
     const distance = Math.abs(gesture.dx);
     const speed = distance / Math.max(1, performance.now() - gesture.started);
-    const threshold = Math.max(35, Math.min(80, viewport.clientWidth * .12));
+    const threshold = Math.max(20, Math.min(32, viewport.clientWidth * .06));
     const swipe = event.type === 'pointerup' && gesture.dragging &&
-      distance > Math.abs(gesture.dy) * 1.3 && (distance >= threshold || (distance > 20 && speed > .45));
+      distance > Math.abs(gesture.dy) * 1.15 && (distance >= threshold || (distance >= 12 && speed > .3));
     if (gesture.dragging) state.suppressClickUntil = performance.now() + 400;
     const direction = gesture.dx < 0 ? 1 : -1;
     if (gesture.dragging) goTo(kind, state.index + (swipe ? direction : 0), { direction, dragOffset: gesture.dx });
@@ -289,12 +294,21 @@ function installSwipe(kind) {
     }
     if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
   }
-  viewport.addEventListener('pointerup', finish);
-  viewport.addEventListener('pointercancel', finish);
+  // A release can land outside the viewport, and touch browsers may lose their
+  // implicit capture on the original image rather than on the viewport itself.
+  window.addEventListener('pointerup', finish);
+  window.addEventListener('pointercancel', finish);
   viewport.addEventListener('lostpointercapture', event => {
-    if (event.target === viewport && state.gesture?.id === event.pointerId &&
+    if (state.gesture?.id === event.pointerId &&
         !viewport.hasPointerCapture(event.pointerId)) finish(event);
   });
+  const cancelGesture = () => {
+    if (state.gesture) finish({ type: 'pointercancel', pointerId: state.gesture.id });
+  };
+  window.addEventListener('blur', cancelGesture);
+  window.addEventListener('pagehide', cancelGesture);
+  window.addEventListener('resize', cancelGesture);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) cancelGesture(); });
   viewport.addEventListener('click', event => {
     if (performance.now() < state.suppressClickUntil) {
       event.preventDefault();

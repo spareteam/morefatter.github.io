@@ -13,7 +13,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  audit:
+    uses: ./.github/workflows/browser-audit.yml
   publish:
+    needs: audit
     runs-on: ubuntu-latest
     permissions:
       pages: write

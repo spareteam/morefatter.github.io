@@ -126,10 +126,11 @@ test('Device audit: lost artwork capture cannot freeze Music while Video keeps a
     await art.evaluate(image => image.releasePointerCapture(Number(image.dataset.pointer)));
     await page.mouse.move(2, 2);
     await page.mouse.up();
-    await page.waitForFunction(() => document.querySelector('#music-content').dataset.index === '1', null, { timeout: 5000 });
-    await settled(page, 'music');
+    await page.waitForTimeout(3500);
+    const musicIndex = await index(page, 'music');
     await press(page.locator('[data-panel="video"]'));
     await page.waitForFunction(() => document.querySelector('#video-content').dataset.index === '1', null, { timeout: 5000 });
+    assert.equal(musicIndex, 1, 'Music must recover after artwork capture is lost, just as Video keeps advancing');
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
@@ -147,6 +148,34 @@ test('Device audit: short, gentle swipes animate both directions without activat
       assert.equal(await index(page, kind), 0);
       await settled(page, kind);
       assert.equal(await page.locator('.stream-options, iframe').count(), 0, 'A swipe must not become an artwork click');
+    }
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Device audit: releasing outside the artwork and rotating the phone resume auto-advance', async () => {
+  const { page, context, errors, press } = await open();
+  try {
+    for (const kind of ['music', 'video']) {
+      await press(page.locator(`[data-panel="${kind}"]`));
+      const art = preview(page, kind);
+      let box = await art.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(2, 2);
+      await page.mouse.up();
+      await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.index === '1', kind, { timeout: 5000 });
+      await settled(page, kind);
+      box = await preview(page, kind).boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.setViewportSize({ width: 844, height: 390 });
+      await nextFrame(page);
+      await page.mouse.up();
+      await page.waitForFunction(kind => document.querySelector(`#${kind}-content`).dataset.index === '2', kind, { timeout: 5000 });
+      await page.setViewportSize({ width: 390, height: 664 });
+      await nextFrame(page);
+      assert.equal(await page.locator('.stream-options, iframe').count(), 0);
     }
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
