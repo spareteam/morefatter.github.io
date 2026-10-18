@@ -461,6 +461,8 @@ let backgroundRequested = true;
 let backgroundPlayPending = false;
 let backgroundRetryTimer = null;
 let backgroundRetryCount = 0;
+let backgroundStartupTimer = null;
+let backgroundReloadCount = 0;
 const backgroundRetryDelays = [200, 500, 1000, 2000, 4000];
 
 function shouldPlayBackground() {
@@ -471,6 +473,27 @@ function shouldPlayBackground() {
 function clearBackgroundRetry() {
   clearTimeout(backgroundRetryTimer);
   backgroundRetryTimer = null;
+}
+
+function clearBackgroundStartup() {
+  clearTimeout(backgroundStartupTimer);
+  backgroundStartupTimer = null;
+}
+
+function watchBackgroundStartup() {
+  if (!shouldPlayBackground() || background.paused || background.currentTime > .1 ||
+      backgroundStartupTimer !== null || backgroundReloadCount >= 2) return;
+  backgroundStartupTimer = setTimeout(() => {
+    backgroundStartupTimer = null;
+    if (!shouldPlayBackground() || background.paused || background.currentTime > .1 ||
+        background.readyState < 2) return;
+    // WebKit can accept play() yet leave the first frame frozen. Restart its
+    // ready media pipeline, with a finite budget and the visitor's pause intact.
+    backgroundReloadCount++;
+    background.pause();
+    background.load();
+    updateBackground();
+  }, 2000);
 }
 
 function retryBackground() {
@@ -493,6 +516,7 @@ function updateMotion() {
 function updateBackground() {
   if (!shouldPlayBackground()) {
     clearBackgroundRetry();
+    clearBackgroundStartup();
     background.pause();
   } else if (background.paused && !backgroundPlayPending) {
     if (!background.getAttribute('src')) { background.src = data.video; background.load(); }
@@ -501,6 +525,7 @@ function updateBackground() {
     Promise.resolve(background.play()).then(() => {
       backgroundPlayPending = false;
       if (!shouldPlayBackground()) background.pause();
+      else watchBackgroundStartup();
     }).catch(() => {
       backgroundPlayPending = false;
       updateMotion();
@@ -509,17 +534,24 @@ function updateBackground() {
   }
   updateMotion();
   updateBrandAnimations();
+  watchBackgroundStartup();
 }
 background.addEventListener('play', () => {
   if (!shouldPlayBackground()) background.pause();
   updateMotion();
+  watchBackgroundStartup();
 });
 background.addEventListener('playing', () => {
   clearBackgroundRetry();
   backgroundRetryCount = 0;
   updateMotion();
+  watchBackgroundStartup();
+});
+background.addEventListener('timeupdate', () => {
+  if (background.currentTime > .1) clearBackgroundStartup();
 });
 background.addEventListener('pause', () => {
+  clearBackgroundStartup();
   updateMotion();
   retryBackground();
 });
@@ -528,6 +560,7 @@ background.addEventListener('canplay', updateBackground);
 background.addEventListener('loadeddata', updateBackground);
 function resumeBackground() {
   backgroundRetryCount = 0;
+  backgroundReloadCount = 0;
   clearBackgroundRetry();
   updateBackground();
 }

@@ -309,6 +309,43 @@ test('Mobile background keeps playing behind the first-visit signup without a ta
   } finally { await context.close(); }
 });
 
+test('Mobile background recovers from an accepted play request with a frozen first frame and respects pause', async t => {
+  for (const pause of [false, true]) {
+    await t.test(pause ? 'A deliberate pause cancels recovery' : 'A frozen start reloads once and advances', async () => {
+      const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
+        isMobile: true, hasTouch: true, realMedia: true,
+        signupState: { visits: 3, lastVisitAt: Date.now() }, initScript: () => {
+          window.frozenBackground = { active: true, reloads: 0 };
+          const time = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
+          const load = HTMLMediaElement.prototype.load;
+          Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', {
+            ...time, get() { return this.matches('.backdrop') && window.frozenBackground.active ? 0 : time.get.call(this); },
+          });
+          HTMLMediaElement.prototype.load = function () {
+            if (this.matches('.backdrop')) {
+              window.frozenBackground.reloads++;
+              window.frozenBackground.active = false;
+            }
+            return load.call(this);
+          };
+        } });
+      try {
+        await waitForBackground(page);
+        if (pause) {
+          await page.locator('.motion').click();
+          await page.waitForTimeout(2600);
+          assert.equal(await page.evaluate(() => window.frozenBackground.reloads), 0);
+          assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
+        } else {
+          await waitForBackground(page, { progress: true });
+          assert.equal(await page.evaluate(() => window.frozenBackground.reloads), 1);
+        }
+        assert.deepEqual(errors, []);
+      } finally { await context.close(); }
+    });
+  }
+});
+
 test('Owned artwork, logos, font and background video work without third-party media requests', async () => {
   const { page, context, requests, errors } = await openPage({ reducedMotion: 'reduce', clock: true, realMedia: true });
   try {
