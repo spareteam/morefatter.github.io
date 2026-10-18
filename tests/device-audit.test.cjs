@@ -219,6 +219,45 @@ test('Device audit: short, gentle swipes animate both directions without activat
   } finally { await context.close(); }
 });
 
+test('Device audit: desktop drags carry through without momentum or a precise release distance', async () => {
+  const { page, context, errors, press } = await open({ width: 1440, height: 900, mobile: false });
+  try {
+    for (const kind of ['music', 'video']) {
+      await press(page.locator(`[data-panel="${kind}"]`));
+      await press(page.locator(`#${kind} .rotation-toggle`));
+      await drag(page, kind, -10, 900);
+      assert.equal(await index(page, kind), 1, `${kind}: a slow 10px desktop drag must carry through`);
+      const frames = await page.locator(`#${kind} .carousel-track`).evaluate(track => track.getAnimations()[0]?.effect.getKeyframes());
+      assert(frames?.length >= 2 && frames[0].transform !== frames[1].transform, 'The rest of the slide must animate smoothly');
+      await settled(page, kind);
+      await drag(page, kind, 10, 900);
+      assert.equal(await index(page, kind), 0);
+      await settled(page, kind);
+
+      const box = await preview(page, kind).boundingBox();
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x - 18, y, { steps: 3 });
+      await page.waitForTimeout(300);
+      await page.mouse.move(x - 3, y);
+      await page.mouse.up();
+      assert.equal(await index(page, kind), 1, `${kind}: easing back before release must not undo a started swipe`);
+      await settled(page, kind);
+      assert.equal(await page.locator('.stream-options, iframe').count(), 0, 'Committed drags must not activate the artwork');
+    }
+    await press(page.locator('[data-panel="music"]'));
+    const box = await preview(page, 'music').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 2, box.y + box.height / 2 + 1);
+    await page.mouse.up();
+    assert.equal(await page.locator('#music .stream-options').count(), 1, 'Tiny click jitter must still open the album normally');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
 test('Device audit: releasing outside the artwork and rotating the phone resume auto-advance', async () => {
   const { page, context, errors, press } = await open();
   try {

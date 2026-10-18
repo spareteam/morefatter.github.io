@@ -253,7 +253,8 @@ function installSwipe(kind) {
     if (!event.isPrimary || event.button !== 0 || event.target.closest('.stream-options')) return;
     finishTransition(kind);
     state.gesture = { id: event.pointerId, x: event.clientX, y: event.clientY,
-      started: performance.now(), dx: 0, dy: 0, axis: null, dragging: false };
+      started: performance.now(), dx: 0, dy: 0, axis: null, dragging: false, direction: 0,
+      carryOnRelease: event.pointerType === 'mouse' || matchMedia('(min-width: 701px)').matches };
     clearRotation(state);
   });
   viewport.addEventListener('pointermove', event => {
@@ -267,6 +268,9 @@ function installSwipe(kind) {
     }
     if (gesture.axis === 'x') {
       gesture.dragging = true;
+      // Latch the last clear horizontal intention; small release wobble should
+      // not undo a drag that the interface has already started following.
+      if (Math.abs(gesture.dx) > 6) gesture.direction = gesture.dx < 0 ? 1 : -1;
       if (!viewport.hasPointerCapture(event.pointerId)) viewport.setPointerCapture(event.pointerId);
       if (event.cancelable) event.preventDefault();
       state.track.style.transform = `translate3d(${-state.physical * viewport.clientWidth + gesture.dx}px, 0, 0)`;
@@ -283,14 +287,16 @@ function installSwipe(kind) {
     const distance = Math.abs(gesture.dx);
     const speed = distance / Math.max(1, performance.now() - gesture.started);
     const threshold = Math.max(20, Math.min(32, viewport.clientWidth * .06));
+    const desktopDrag = gesture.carryOnRelease && gesture.dragging;
     const swipe = event.type === 'pointerup' && gesture.dragging &&
-      distance > Math.abs(gesture.dy) * 1.15 && (distance >= threshold || (distance >= 12 && speed > .3));
+      (desktopDrag || (distance > Math.abs(gesture.dy) * 1.15 &&
+        (distance >= threshold || (distance >= 12 && speed > .3))));
     // WebKit can synthesize an artwork click even after capture was lost or a
     // release landed outside it. Only a completed, stationary tap may activate it.
     if (event.type !== 'pointerup' || gesture.dragging || distance > 6 || Math.abs(gesture.dy) > 6) {
       state.suppressClickUntil = performance.now() + 400;
     }
-    const direction = gesture.dx < 0 ? 1 : -1;
+    const direction = desktopDrag ? gesture.direction : (gesture.dx < 0 ? 1 : -1);
     if (gesture.dragging) goTo(kind, state.index + (swipe ? direction : 0), { direction, dragOffset: gesture.dx });
     else {
       state.track.style.transform = `translate3d(${-state.physical * 100}%, 0, 0)`;

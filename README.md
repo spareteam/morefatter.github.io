@@ -26,6 +26,7 @@ GitHub Pages publishing is active. Browser checks compare the shared header, nav
 - Seven release slides with original artwork and immediate in-page streaming choices
 - Ten YouTube videos with thumbnail previews; players load only after a click
 - Three-second slideshow rotation, pause controls, keyboard navigation, and touch swiping
+- Desktop drags carry through once horizontal intent is detected, without requiring a particular speed or release distance; small release wobble does not reverse a started swipe. Slide-following and the smooth completion animation are preserved.
 - Live Songkick tour widget
 - Original Shopify collection and checkout integration (loaded on opening Shop)
 - Original typography, colors, navigation, arrows, pagination, and footer styling
