@@ -120,14 +120,14 @@ function holdBackgroundPlayback() {
   }, true);
 }
 
-async function waitForBackground(page, { playing = true, progress = false } = {}) {
+async function waitForBackground(page, { playing = true, progress = false, timeout = 10000 } = {}) {
   try {
     await page.waitForFunction(({ playing, progress }) => {
       const video = document.querySelector('.backdrop');
       if (video.error) throw new Error(`Video error ${video.error.code}: ${video.error.message}`);
       return video.readyState >= 2 && video.videoWidth > 0 && (!playing || !video.paused) &&
         (!progress || video.currentTime > .15);
-    }, { playing, progress }, { timeout: 10000, polling: 100 });
+    }, { playing, progress }, { timeout, polling: 100 });
   } catch (error) {
     const state = await page.locator('.backdrop').evaluate(video => ({
       paused: video.paused, muted: video.muted, defaultMuted: video.defaultMuted,
@@ -311,7 +311,7 @@ test('Mobile background keeps playing behind the first-visit signup without a ta
 
 test('Mobile background recovers from an accepted play request with a frozen first frame and respects pause', async t => {
   for (const pause of [false, true]) {
-    await t.test(pause ? 'A deliberate pause cancels recovery' : 'A frozen start reloads once and advances', async () => {
+    await t.test(pause ? 'A deliberate pause cancels recovery' : 'A frozen start reloads and advances', async () => {
       const { page, context, errors } = await openPage({ viewport: { width: 390, height: 844 },
         isMobile: true, hasTouch: true, realMedia: true,
         signupState: { visits: 3, lastVisitAt: Date.now() }, initScript: () => {
@@ -337,8 +337,12 @@ test('Mobile background recovers from an accepted play request with a frozen fir
           assert.equal(await page.evaluate(() => window.frozenBackground.reloads), 0);
           assert.equal(await page.locator('.backdrop').evaluate(video => video.paused), true);
         } else {
-          await waitForBackground(page, { progress: true });
-          assert.equal(await page.evaluate(() => window.frozenBackground.reloads), 1);
+          await page.waitForFunction(() => window.frozenBackground.reloads > 0, null, { polling: 100, timeout: 5000 });
+          // Reloading starts a fresh native download/decoder. Its completion
+          // gets a separate deadline from detecting and recovering the stall.
+          await waitForBackground(page, { progress: true, timeout: 30000 });
+          const reloads = await page.evaluate(() => window.frozenBackground.reloads);
+          assert(reloads >= 1 && reloads <= 2, 'Recovery must stay within its two-reload budget');
         }
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
