@@ -56,6 +56,14 @@
 .brand-player{position:absolute;inset:0}
 .brand-player svg{display:block;width:100%;height:100%}
 .brand-animation.is-ready>.brand-fallback{visibility:hidden}
+/* Keep the original SVG moving while the vector player loads or is unavailable. */
+[data-brand-name=title]>.brand-fallback{animation:brand-title-pulse 2s ease-in-out infinite!important;transform-origin:center}
+[data-brand-name=bird]>.brand-fallback{animation:brand-bird-sway 1.333333s ease-in-out infinite!important;transform-origin:55% 75%}
+.brand-animation>.brand-fallback{animation-play-state:paused!important}
+.brand-animation[data-animation-state=playing]>.brand-fallback{animation-play-state:running!important}
+.brand-animation.is-ready>.brand-fallback{animation:none!important}
+@keyframes brand-title-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes brand-bird-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
 @media(max-width:991px){.wordmark{width:330px;height:52.8px}}
 @media(max-width:700px){body>header{top:12px}.links-mark{height:30px}.wordmark{width:300px;height:48px}}
 @media(max-width:479px){.wordmark{width:220px;height:35.2px}}

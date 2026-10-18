@@ -524,8 +524,8 @@ function retryBackground() {
 }
 
 function updateMotion() {
-  motion.textContent = background.paused ? 'Play background' : 'Pause background';
-  motion.setAttribute('aria-pressed', String(!background.paused));
+  motion.textContent = backgroundRequested ? 'Pause background' : 'Play background';
+  motion.setAttribute('aria-pressed', String(backgroundRequested));
   motion.disabled = signupOpen || Object.values(carousels).some(state => state.playerOpen);
   motion.title = signupOpen ? 'Close signup to change background playback.'
     : motion.disabled ? 'Resume the slideshow to resume the background.' : '';
@@ -594,7 +594,7 @@ document.addEventListener('pointerup', retryBackgroundOnGesture, { passive: true
 document.addEventListener('touchend', retryBackgroundOnGesture, { passive: true });
 document.addEventListener('keydown', retryBackgroundOnGesture);
 motion.addEventListener('click', () => {
-  backgroundRequested = background.paused;
+  backgroundRequested = !backgroundRequested;
   if (backgroundRequested && background.error) background.load();
   resumeBackground();
 });
@@ -609,37 +609,47 @@ function updatePreferences() {
 reducedMotion.addEventListener('change', updatePreferences);
 
 function updateBrandAnimations() {
+  // These two ambient marks are explicitly requested site content. Keep them
+  // independent of media playback, popups, and interface motion preferences.
+  const playing = backgroundRequested && !document.hidden;
   for (const state of brandAnimations) {
-    if (!state.loaded) continue;
-    const playing = backgroundRequested && !reducedMotion.matches && !document.hidden && !signupOpen &&
-      !Object.values(carousels).some(carousel => carousel.playerOpen);
-    if (playing) state.animation.play();
-    else if (reducedMotion.matches) state.animation.goToAndStop(0, true);
-    else state.animation.pause();
+    if (state.loaded) {
+      if (playing) state.animation.play();
+      else state.animation.pause();
+    }
     state.container.dataset.animationState = playing ? 'playing' : 'paused';
   }
 }
 
 function installBrandAnimations() {
-  if (!window.lottie) return;
   for (const container of document.querySelectorAll('[data-brand-animation]')) {
-    const animation = window.lottie.loadAnimation({
-      container: container.querySelector('.brand-player'), renderer: 'svg', loop: true, autoplay: false,
-      path: container.dataset.brandAnimation, name: container.dataset.brandName,
-    });
-    const state = { animation, container, loaded: false };
+    const state = { animation: null, container, loaded: false };
     brandAnimations.push(state);
+    if (!window.lottie) continue;
+    let animation;
+    try {
+      animation = window.lottie.loadAnimation({
+        container: container.querySelector('.brand-player'), renderer: 'svg', loop: true, autoplay: false,
+        path: container.dataset.brandAnimation, name: container.dataset.brandName,
+      });
+      state.animation = animation;
+    } catch { continue; } // The original SVG keeps moving if player setup fails.
     animation.addEventListener('DOMLoaded', () => {
       state.loaded = true;
       container.classList.add('is-ready');
       updateBrandAnimations();
     });
-    animation.addEventListener('data_failed', () => {
+    const useFallback = () => {
       state.loaded = false;
       container.classList.remove('is-ready');
       animation.destroy();
-    });
+      state.animation = null;
+      updateBrandAnimations();
+    };
+    animation.addEventListener('data_failed', useFallback);
+    animation.addEventListener('error', useFallback);
   }
+  updateBrandAnimations();
 }
 
 function installSignup() {

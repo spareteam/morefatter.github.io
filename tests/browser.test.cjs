@@ -392,7 +392,7 @@ test('Owned artwork, logos, font and background video work without third-party m
   } finally { await context.close(); }
 });
 
-test('Original title pulse and bird flutter loop locally and respect pause and reduced motion', async () => {
+test('Original title pulse and bird flutter loop locally, keep moving through preferences and signup, and respect Pause', async () => {
   const { page, context, requests, errors } = await openPage({ clock: true });
   try {
     await page.waitForFunction(() => [...document.querySelectorAll('[data-brand-animation]')]
@@ -402,6 +402,8 @@ test('Original title pulse and bird flutter loop locally and respect pause and r
       loop: animation.loop, frames: animation.totalFrames, rate: animation.frameRate,
     })).sort((a, b) => a.name.localeCompare(b.name)));
     const initial = await frames();
+    const visual = () => page.locator('.brand-player').evaluateAll(players => players.map(player => player.innerHTML));
+    const initialVisual = await visual();
     assert.deepEqual(initial.map(({ name, loop, frames, rate }) => ({ name, loop, frames, rate })), [
       { name: 'bird', loop: true, frames: 40, rate: 30 },
       { name: 'title', loop: true, frames: 50, rate: 25 },
@@ -409,6 +411,7 @@ test('Original title pulse and bird flutter loop locally and respect pause and r
     await page.clock.runFor(650);
     const moving = await frames();
     assert(moving.every((animation, index) => !animation.paused && animation.frame !== initial[index].frame));
+    assert((await visual()).every((markup, index) => markup !== initialVisual[index]), 'The rendered vectors must change, not just the frame counter');
     assert.equal(await page.locator('.links-mark').getAttribute('href'), 'https://www.linktr.ee/morefatter');
     assert.equal(await page.locator('.links-mark .brand-player svg').count(), 1);
     await page.locator('.motion').click();
@@ -420,7 +423,13 @@ test('Original title pulse and bird flutter loop locally and respect pause and r
     await page.clock.runFor(200);
     assert((await frames()).every(animation => !animation.paused));
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.waitForFunction(() => lottie.getRegisteredAnimations().every(animation => animation.isPaused && animation.currentFrame === 0));
+    const beforePreference = await visual();
+    await page.clock.runFor(650);
+    assert((await visual()).every((markup, index) => markup !== beforePreference[index]), 'The requested branding keeps moving with interface motion reduced');
+    await page.locator('.join').click();
+    const beforeSignup = await visual();
+    await page.clock.runFor(650);
+    assert((await visual()).every((markup, index) => markup !== beforeSignup[index]), 'Signup must not freeze the ambient logos');
     assert.equal(requests.some(request => /website-files\.com|ffmcdn\.com/.test(new URL(request.url).hostname)), false);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }

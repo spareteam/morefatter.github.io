@@ -52,11 +52,16 @@ after(async () => {
   if (server) await new Promise(resolve => server.close(resolve));
 });
 
-async function open({ width = 390, height = 664, mobile = true, motion = 'no-preference' } = {}) {
+async function open({ width = 390, height = 664, mobile = true, motion = 'no-preference', brandFailure } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, hasTouch: mobile,
     ...(engine === 'firefox' ? {} : { isMobile: mobile }), reducedMotion: motion });
   await context.addInitScript(() => localStorage.setItem('morefatter:signup:v1', JSON.stringify({ dismissed: true, visits: 3 })));
-  await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  await context.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (brandFailure === 'player' && url.pathname.includes('/vendor/lottie-')) return route.abort();
+    if (brandFailure === 'data' && /\/morefatter-(title|bird)\.json$/.test(url.pathname)) return route.abort();
+    return url.origin === origin ? route.continue() : route.abort();
+  });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -85,6 +90,53 @@ async function drag(page, kind, distance, duration = 480) {
   }
   await page.mouse.up();
 }
+
+test('Device audit: visible branding moves on phones and desktop, including reduced motion and failed player loads', async t => {
+  const cases = [
+    ['iphone', {}], ['iphone-reduced-interface-motion', { motion: 'reduce' }],
+    ['iphone-player-unavailable', { motion: 'reduce', brandFailure: 'player' }],
+    ['iphone-animation-data-unavailable', { motion: 'reduce', brandFailure: 'data' }],
+    ['desktop', { width: 1440, height: 900, mobile: false }],
+  ];
+  for (const [name, options] of cases) await t.test(name, async () => {
+    const { page, context, errors, press } = await open(options);
+    const visuals = () => page.evaluate(() => [...document.querySelectorAll('[data-brand-animation]')].map(container => ({
+      name: container.dataset.brandName,
+      state: container.dataset.animationState,
+      graphic: container.classList.contains('is-ready') ? container.querySelector('.brand-player').innerHTML
+        : getComputedStyle(container.querySelector('.brand-fallback')).transform,
+    })));
+    const expectMoving = async label => {
+      const before = await visuals();
+      await page.waitForTimeout(650);
+      const after = await visuals();
+      assert.equal(after.length, 2);
+      after.forEach((mark, i) => {
+        assert.equal(mark.state, 'playing', `${label}: ${mark.name} should be playing`);
+        assert.notEqual(mark.graphic, before[i].graphic, `${label}: ${mark.name}'s visible artwork must move`);
+      });
+    };
+    try {
+      if (!options.brandFailure) await page.waitForFunction(() => document.querySelectorAll('.brand-animation.is-ready').length === 2);
+      else await page.waitForFunction(() => [...document.querySelectorAll('.brand-fallback')].every(image => image.complete && image.naturalWidth > 0));
+      await expectMoving(name);
+      if (options.brandFailure) assert.equal(await page.locator('.brand-animation.is-ready').count(), 0);
+      await press(page.locator('.join'));
+      await expectMoving(`${name} behind signup`);
+      await press(page.locator('.signup-close'));
+      await press(page.locator('.motion'));
+      // CSS/compositor animations commit their paused time on the next frame.
+      await nextFrame(page);
+      const paused = await visuals();
+      await page.waitForTimeout(300);
+      assert.deepEqual(await visuals(), paused, `${name}: the visitor's Pause must stop both marks`);
+      assert(paused.every(mark => mark.state === 'paused'));
+      await press(page.locator('.motion'));
+      await expectMoving(`${name} after Play`);
+      assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+  });
+});
 
 test('Device audit: iPhone 13 music and video auto-advance after dismissing signup', async () => {
   const { page, context, errors, press } = await open();
