@@ -82,13 +82,15 @@
 
 /* Keep mobile controls inside the picture, clear of the film's letterbox bars. */
 @media(max-width:700px){
-  body{--mobile-video-bar:6.5svh;--mobile-wordmark-height:48px;--mobile-title-top:calc(var(--mobile-video-bar) + 6px);--mobile-nav-top:max(93px,calc(var(--mobile-title-top) + var(--mobile-wordmark-height) + 10px));--mobile-panel-top:calc(var(--mobile-nav-top) + 57px);--mobile-panel-bottom:calc(156px + var(--mobile-video-bar))}
+  body{--mobile-video-bar:6.5svh;--mobile-wordmark-height:48px;--mobile-row-gap:10px;--mobile-footer-height:30px;--mobile-title-top:calc(var(--mobile-video-bar) + 12px);--mobile-nav-top:max(93px,calc(var(--mobile-title-top) + var(--mobile-wordmark-height) + var(--mobile-row-gap)));--mobile-panel-top:calc(var(--mobile-nav-top) + 57px);--mobile-panel-bottom:calc(156px + var(--mobile-video-bar))}
   body>header{top:var(--mobile-title-top)}
   .nav{top:var(--mobile-nav-top)}
   footer{bottom:calc(26px + var(--mobile-video-bar))}
-  .socials{bottom:calc(93px + var(--mobile-video-bar))}
+  .socials{bottom:calc(26px + var(--mobile-video-bar) + var(--mobile-footer-height) + var(--mobile-row-gap))}
   .motion{bottom:calc(6px + var(--mobile-video-bar))}
   .panel{top:var(--mobile-panel-top);bottom:var(--mobile-panel-bottom)}
   .signup-dialog{top:var(--mobile-panel-top);bottom:var(--mobile-panel-bottom);max-height:calc(100svh - var(--mobile-panel-top) - var(--mobile-panel-bottom))}
 }
 @media(max-width:479px){body{--mobile-wordmark-height:35.2px}}
+/* Leave the same gap when the footer wraps on the smallest phones. */
+@media(max-width:355px){body{--mobile-footer-height:66px}}
